@@ -1,12 +1,12 @@
-import express from "express"; //gọi Express
-import homeController from "../controller/homeController"; //gọi controller
+import express from "express";
+import authRoutes from "./auth.routes.js";
 
-let router = express.Router(); //khởi tạo Route
+let router = express.Router(); 
 
 let initWebRoutes = (app) => {
-    router.get('/login', auth.controller); 
+    app.use("/", authRoutes);
 
-    return app.use("/", router); //url mặc định
+    return app.use("/", router);
 }
 
 module.exports = initWebRoutes;
