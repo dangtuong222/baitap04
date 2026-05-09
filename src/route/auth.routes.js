@@ -3,7 +3,8 @@ import authController from "../controllers/auth.controller.js";
 import { validate, authorize, verifyToken } from "../middleware/auth.middleware.js";
 import rateLimit from "express-rate-limit";
 const {
-  loginValidationRules
+  loginValidationRules,
+  editProfileValidationRules
 } = require("../validations/auth.validation");
 const router = express.Router();
 
@@ -13,15 +14,24 @@ const loginLimiter = rateLimit({
   message: "Too many login attempts"
 });
 
+const editProfileLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 giờ
+  max: 10, // 10 lần edit
+  message: "Too many profile updates"
+});
+
 router.post(
   "/login",
   loginLimiter,
   loginValidationRules,
   validate,
   authController.login
-);router.post("/refresh", authController.refresh);
+);
+
+router.post("/refresh", authController.refresh);
 router.post("/logout", authController.logout);
 
+// User profile routes
 router.get(
   "/user/profile",
   verifyToken,
@@ -31,6 +41,17 @@ router.get(
   }
 );
 
+router.patch(
+  "/user/profile",
+  verifyToken,
+  authorize("user", "admin"),
+  editProfileLimiter,
+  editProfileValidationRules,
+  validate,
+  authController.editUserProfile
+);
+
+// Admin profile routes
 router.get(
   "/admin/profile",
   verifyToken,
@@ -38,6 +59,16 @@ router.get(
   (req, res) => {
     res.json({ message: "Admin only" });
   }
+);
+
+router.patch(
+  "/admin/profile/:userId?",
+  verifyToken,
+  authorize("admin"),
+  editProfileLimiter,
+  editProfileValidationRules,
+  validate,
+  authController.editAdminProfile
 );
 
 // protected route
