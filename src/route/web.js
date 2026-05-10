@@ -11,6 +11,8 @@ import {
     verifyOtpValidator
 } from '../middleware/validator.js';
 
+import authRoutes from './auth.routes.js';
+
 let router = express.Router();
 
 let initWebRoutes = (app) => {
@@ -34,6 +36,9 @@ let initWebRoutes = (app) => {
         otpLimiter,
         authController.resendRegistrationOtp
     );
+
+    // mount API routes from auth.routes
+    app.use('/', authRoutes);
 
     return app.use('/', router);
 };

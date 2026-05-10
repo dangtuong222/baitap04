@@ -1,17 +1,17 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const db = require("../models");
-const { sendOtpEmail } = require('../services/email.service');
-
-const { User, RefreshToken, ResetOtp } = db;
-const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
-const {
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import db from "../models/index.js";
+import { sendOtpEmail } from '../services/email.service.js';
+import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js";
+import {
   generateOTP,
   getOTPExpiry,
   isOTPExpired,
   verifyOTPCode,
-} = require("../services/otpService");
-const { sendPasswordResetEmail } = require("../services/mailService");
+} from "../services/otpService.js";
+import { sendPasswordResetEmail } from "../services/mailService.js";
+
+const { User, RefreshToken, ResetOtp } = db;
 
 // Lưu OTP tạm thời trong memory (cho đăng ký)
 const otpStore = new Map();
@@ -516,7 +516,7 @@ let editAdminProfile = async (req, res) => {
   }
 };
 
-module.exports = {
+export default {
   login,
   refresh,
   logout,

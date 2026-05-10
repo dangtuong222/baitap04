@@ -3,13 +3,13 @@ import authController from "../controllers/auth.controller.js";
 import { validate, authorize, verifyToken } from "../middleware/auth.middleware.js";
 import rateLimit from "express-rate-limit";
 
-const {
+import {
   loginValidationRules,
   forgotPasswordValidationRules,
   resendOtpValidationRules,
   resetPasswordValidationRules,
   editProfileValidationRules
-} = require("../validations/auth.validation");
+} from "../validations/auth.validation.js";
 
 const router = express.Router();
 
