@@ -263,6 +263,7 @@ let resendOtp = async (req, res) => {
 let register = async (req, res) => {
   try {
     const { email, password, firstName, lastName, phoneNumber, address, gender } = req.body;
+    const isMockEmail = String(process.env.EMAIL_MOCK || "").toLowerCase() === "true";
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
@@ -286,9 +287,13 @@ let register = async (req, res) => {
     console.log(`📧 OTP cho ${email}: ${otp}`);
     console.log(`=============================\n`);
 
-    // Nếu có hàm sendOtpEmail thì gọi, nếu không thì vẫn log
-    if (typeof sendOtpEmail === 'function') {
-      await sendOtpEmail(email, otp);
+    // Trong môi trường test/dev, nếu gửi email lỗi thì vẫn cho phép tiếp tục verify OTP.
+    if (!isMockEmail && typeof sendOtpEmail === 'function') {
+      try {
+        await sendOtpEmail(email, otp);
+      } catch (mailError) {
+        console.warn('Send OTP email failed, fallback to console OTP only:', mailError.message || mailError);
+      }
     }
 
     return res.status(200).json({
