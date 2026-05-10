@@ -55,9 +55,19 @@ let login = async (req, res) => {
 
     const role = user.role;
 
+    let redirectURI = "/";
+
+    if (role === "admin") {
+    redirectURI = "/admin/profile";
+    } else if (role === "user") {
+    redirectURI = "/user/profile";
+    }
+
     return res.json({
-      message: "Login success",
-      token: accessToken
+        message: "Login success",
+        token: accessToken,
+        role,
+        redirectURI
     });
 
   } catch (error) {
