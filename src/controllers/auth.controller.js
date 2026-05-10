@@ -61,8 +61,10 @@ let login = async (req, res) => {
     });
 
     return res.json({
-      message: "Login success",
-      token: accessToken
+        message: "Login success",
+        token: accessToken,
+        role,
+        redirectURI
     });
 
   } catch (error) {
@@ -171,14 +173,21 @@ let logout = async (req, res) => {
   }
 };
 
-/* =========================
-   FORGOT PASSWORD - SEND OTP
-========================= */
+//   FORGOT PASSWORD - SEND OTP
 let forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
     const user = await User.findOne({ where: { email } });
+//   EDIT USER PROFILE
+let editUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { email, firstName, lastName, phoneNumber, address, gender, image, positionId } = req.body;
+
+    // Tìm user
+    const user = await User.findByPk(userId);
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -199,15 +208,52 @@ let forgotPassword = async (req, res) => {
     );
 
     return res.json({ message: "OTP sent", tempToken });
+    // Nếu email thay đổi, kiểm tra xem email đã tồn tại chưa
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({
+        where: { email }
+      });
+
+      if (existingUser) {
+        return res.status(409).json({ message: "Email already exists" });
+      }
+    }
+
+    // Cập nhật profile
+    await user.update({
+      email: email || user.email,
+      firstName: firstName || user.firstName,
+      lastName: lastName || user.lastName,
+      phoneNumber: phoneNumber || user.phoneNumber,
+      address: address || user.address,
+      gender: gender !== undefined ? gender : user.gender,
+      image: image || user.image,
+      positionId: positionId || user.positionId
+    });
+
+    return res.json({
+      message: "Profile updated successfully",
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        address: user.address,
+        gender: user.gender,
+        image: user.image,
+        positionId: user.positionId,
+        role: user.role
+      }
+    });
+
   } catch (error) {
     console.log(error);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================
-   RESET PASSWORD - VERIFY OTP
-========================= */
+//   RESET PASSWORD - VERIFY OTP
 let resetPassword = async (req, res) => {
   try {
     const { email, otp, tempToken, newPassword } = req.body;
@@ -239,6 +285,19 @@ let resetPassword = async (req, res) => {
     }
 
     const user = await User.findOne({ where: { email } });
+//   EDIT ADMIN PROFILE (Admin or self)
+let editAdminProfile = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { userId } = req.params;
+    const { email, firstName, lastName, phoneNumber, address, gender, image, positionId, role } = req.body;
+
+    // Nếu admin edit profile khác người, kiểm tra quyền
+    const targetUserId = userId ? parseInt(userId) : adminId;
+
+    // Tìm user cần edit
+    const user = await User.findByPk(targetUserId);
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -255,9 +314,7 @@ let resetPassword = async (req, res) => {
   }
 };
 
-/* =========================
-   RESEND OTP
-========================= */
+//   RESEND OTP
 let resendOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -276,6 +333,57 @@ let resendOtp = async (req, res) => {
     await sendPasswordResetEmail(email, otp, user.firstName || "User");
 
     return res.json({ message: "OTP resent" });
+    // Admin chỉ có thể edit user hoặc admin khác, không edit admin khác (chỉ edit chính mình)
+    if (targetUserId !== adminId && user.role === "admin") {
+      return res.status(403).json({ message: "Cannot edit other admin profiles" });
+    }
+
+    // Nếu email thay đổi, kiểm tra xem email đã tồn tại chưa
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({
+        where: { email }
+      });
+
+      if (existingUser) {
+        return res.status(409).json({ message: "Email already exists" });
+      }
+    }
+
+    // Cập nhật profile
+    const updateData = {
+      email: email || user.email,
+      firstName: firstName || user.firstName,
+      lastName: lastName || user.lastName,
+      phoneNumber: phoneNumber || user.phoneNumber,
+      address: address || user.address,
+      gender: gender !== undefined ? gender : user.gender,
+      image: image || user.image,
+      positionId: positionId || user.positionId
+    };
+
+    // Chỉ cho phép admin thay đổi role của user khác, không thay đổi role của chính admin
+    if (role && targetUserId !== adminId) {
+      updateData.role = role;
+    }
+
+    await user.update(updateData);
+
+    return res.json({
+      message: "Profile updated successfully",
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        address: user.address,
+        gender: user.gender,
+        image: user.image,
+        positionId: user.positionId,
+        role: user.role
+      }
+    });
+
   } catch (error) {
     console.log(error);
     return res.status(500).json({ message: "Server error" });
@@ -288,5 +396,7 @@ module.exports = {
   logout,
   forgotPassword,
   resetPassword,
-  resendOtp
+  resendOtp,
+  editUserProfile,
+  editAdminProfile
 };
