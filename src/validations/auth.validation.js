@@ -61,6 +61,8 @@ export const resetPasswordValidationRules = [
     .withMessage("Confirm password không được để trống")
     .custom((value, { req }) => value === req.body.newPassword)
     .withMessage("Confirm password không khớp"),
+];
+
 export const editProfileValidationRules = [
   body("email")
     .optional()

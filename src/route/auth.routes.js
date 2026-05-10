@@ -2,6 +2,7 @@ import express from "express";
 import authController from "../controllers/auth.controller.js";
 import { validate, authorize, verifyToken } from "../middleware/auth.middleware.js";
 import rateLimit from "express-rate-limit";
+
 const {
   loginValidationRules,
   forgotPasswordValidationRules,
@@ -9,20 +10,22 @@ const {
   resetPasswordValidationRules,
   editProfileValidationRules
 } = require("../validations/auth.validation");
+
 const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
-  max: 10, // 10 lần thử
+  max: 10,
   message: "Too many login attempts"
 });
 
 const editProfileLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 giờ
-  max: 10, // 10 lần edit
+  max: 10,
   message: "Too many profile updates"
 });
 
+// ==================== AUTH PUBLIC ROUTES ====================
 router.post(
   "/api/auth/login",
   loginLimiter,
@@ -30,36 +33,41 @@ router.post(
   validate,
   authController.login
 );
-router.post("/refresh", authController.refresh);
-router.post("/logout", authController.logout);
 
 router.post(
-  "/forgot-password",
+  "/api/auth/refresh",
+  authController.refresh
+);
+
+router.post(
+  "/api/auth/logout",
+  authController.logout
+);
+
+router.post(
+  "/api/auth/forgot-password",
   forgotPasswordValidationRules,
   validate,
   authController.forgotPassword
 );
 
 router.post(
-  "/reset-password",
+  "/api/auth/reset-password",
   resetPasswordValidationRules,
   validate,
   authController.resetPassword
 );
 
 router.post(
-  "/resend-otp",
+  "/api/auth/resend-otp",
   resendOtpValidationRules,
   validate,
   authController.resendOtp
 );
 
-);router.post("/api/auth/refresh", authController.refresh);
-router.post("/api/auth/logout", authController.logout);
-
-// User profile routes
+// ==================== USER PROFILE (authenticated) ====================
 router.get(
-  "/user/profile",
+  "/api/user/profile",
   verifyToken,
   authorize("user", "admin"),
   (req, res) => {
@@ -68,7 +76,7 @@ router.get(
 );
 
 router.patch(
-  "/user/profile",
+  "/api/user/profile",
   verifyToken,
   authorize("user", "admin"),
   editProfileLimiter,
@@ -77,18 +85,20 @@ router.patch(
   authController.editUserProfile
 );
 
-// Admin profile routes
+// ==================== ADMIN PROFILE ROUTES ====================
+// Admin xem thông tin riêng (không cần userId)
 router.get(
-  "/admin/profile",
+  "/api/admin/profile",
   verifyToken,
   authorize("admin"),
   (req, res) => {
-    res.json({ message: "Admin only" });
+    res.json({ message: "Admin only", user: req.user });
   }
 );
 
+// Admin chỉnh sửa profile của chính mình
 router.patch(
-  "/admin/profile/:userId?",
+  "/api/admin/profile",
   verifyToken,
   authorize("admin"),
   editProfileLimiter,
@@ -97,8 +107,19 @@ router.patch(
   authController.editAdminProfile
 );
 
-// protected route
-router.get("/profile", verifyToken, (req, res) => {
+// Admin chỉnh sửa profile của user khác (bắt buộc userId)
+router.patch(
+  "/api/admin/profile/:userId",
+  verifyToken,
+  authorize("admin"),
+  editProfileLimiter,
+  editProfileValidationRules,
+  validate,
+  authController.editAdminProfile
+);
+
+// (Tuỳ chọn) Route protected cơ bản lấy thông tin user từ token
+router.get("/api/auth/profile", verifyToken, (req, res) => {
   res.json({ user: req.user });
 });
 

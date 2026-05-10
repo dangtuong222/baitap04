@@ -1,7 +1,6 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import csrf from "csurf";
 import dotenv from "dotenv";
 
 import viewEngine from "./config/viewEngine.js";
@@ -24,13 +23,6 @@ app.use(bodyParser.urlencoded({
 }));
 
 app.use(cookieParser());
-
-// csrf protection disabled
-// const csrfProtection = csrf({
-//     cookie: true
-// });
-
-// app.use(csrfProtection);
 
 // view engine
 viewEngine(app);

@@ -30,5 +30,13 @@
     "@babel/preset-env": "^7.29.3",
     "nodemon": "^3.1.14",
     "sequelize-cli": "^6.6.5"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tringy7/Nhom13.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tringy7/Nhom13/issues"
+  },
+  "homepage": "https://github.com/Tringy7/Nhom13#readme"
 }

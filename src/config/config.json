@@ -1,7 +1,7 @@
 {
   "development": {
     "username": "root",
-    "password": "123456",
+    "password": "171005",
     "database": "node_fulltask",
     "host": "127.0.0.1",
     "dialect": "mysql"
@@ -20,8 +20,4 @@
     "host": "127.0.0.1",
     "dialect": "mysql"
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> feature/register
