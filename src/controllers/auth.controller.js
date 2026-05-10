@@ -2,8 +2,15 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../models");
 
-const { User, RefreshToken } = db;
+const { User, RefreshToken, ResetOtp } = db;
 const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
+const {
+  generateOTP,
+  getOTPExpiry,
+  isOTPExpired,
+  verifyOTPCode
+} = require("../services/otpService");
+const { sendPasswordResetEmail } = require("../services/mailService");
 
 /* =========================
    LOGIN
@@ -52,16 +59,6 @@ let login = async (req, res) => {
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
-
-    const role = user.role;
-
-    let redirectURI = "/";
-
-    if (role === "admin") {
-    redirectURI = "/admin/profile";
-    } else if (role === "user") {
-    redirectURI = "/user/profile";
-    }
 
     return res.json({
         message: "Login success",
@@ -176,9 +173,13 @@ let logout = async (req, res) => {
   }
 };
 
-/* =========================
-   EDIT USER PROFILE
-========================= */
+//   FORGOT PASSWORD - SEND OTP
+let forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ where: { email } });
+//   EDIT USER PROFILE
 let editUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -191,6 +192,22 @@ let editUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const otp = generateOTP();
+    const expiresAt = getOTPExpiry();
+
+    await ResetOtp.destroy({ where: { email } });
+    await ResetOtp.create({ email, otp, expiresAt });
+
+    await sendPasswordResetEmail(email, otp, user.firstName || "User");
+
+    const tempTokenSecret = process.env.TEMP_TOKEN_SECRET || process.env.ACCESS_TOKEN_SECRET;
+    const tempToken = jwt.sign(
+      { email, purpose: "password-reset" },
+      tempTokenSecret,
+      { expiresIn: "10m" }
+    );
+
+    return res.json({ message: "OTP sent", tempToken });
     // Nếu email thay đổi, kiểm tra xem email đã tồn tại chưa
     if (email && email !== user.email) {
       const existingUser = await User.findOne({
@@ -236,9 +253,39 @@ let editUserProfile = async (req, res) => {
   }
 };
 
-/* =========================
-   EDIT ADMIN PROFILE (Admin or self)
-========================= */
+//   RESET PASSWORD - VERIFY OTP
+let resetPassword = async (req, res) => {
+  try {
+    const { email, otp, tempToken, newPassword } = req.body;
+
+    const tempTokenSecret = process.env.TEMP_TOKEN_SECRET || process.env.ACCESS_TOKEN_SECRET;
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, tempTokenSecret);
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid or expired temp token" });
+    }
+
+    if (decoded.email !== email || decoded.purpose !== "password-reset") {
+      return res.status(400).json({ message: "Invalid temp token" });
+    }
+
+    const storedOtp = await ResetOtp.findOne({ where: { email } });
+    if (!storedOtp) {
+      return res.status(400).json({ message: "OTP not found" });
+    }
+
+    if (isOTPExpired(storedOtp.expiresAt)) {
+      await ResetOtp.destroy({ where: { email } });
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    if (!verifyOTPCode(otp, storedOtp.otp)) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    const user = await User.findOne({ where: { email } });
+//   EDIT ADMIN PROFILE (Admin or self)
 let editAdminProfile = async (req, res) => {
   try {
     const adminId = req.user.id;
@@ -255,6 +302,37 @@ let editAdminProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await User.update({ password: hashed }, { where: { email } });
+    await ResetOtp.destroy({ where: { email } });
+
+    const accessToken = generateAccessToken(user);
+    return res.status(201).json({ message: "Password reset success", accessToken });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+//   RESEND OTP
+let resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const otp = generateOTP();
+    const expiresAt = getOTPExpiry();
+
+    await ResetOtp.destroy({ where: { email } });
+    await ResetOtp.create({ email, otp, expiresAt });
+
+    await sendPasswordResetEmail(email, otp, user.firstName || "User");
+
+    return res.json({ message: "OTP resent" });
     // Admin chỉ có thể edit user hoặc admin khác, không edit admin khác (chỉ edit chính mình)
     if (targetUserId !== adminId && user.role === "admin") {
       return res.status(403).json({ message: "Cannot edit other admin profiles" });
@@ -316,6 +394,9 @@ module.exports = {
   login,
   refresh,
   logout,
+  forgotPassword,
+  resetPassword,
+  resendOtp,
   editUserProfile,
   editAdminProfile
 };

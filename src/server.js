@@ -39,7 +39,7 @@ viewEngine(app);
 initWebRoutes(app);
 
 // port
-const port = process.env.PORT || 6969;
+const port = process.env.PORT || 8080;
 
 // start server
 app.listen(port, () => {

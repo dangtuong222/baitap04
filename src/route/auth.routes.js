@@ -4,6 +4,9 @@ import { validate, authorize, verifyToken } from "../middleware/auth.middleware.
 import rateLimit from "express-rate-limit";
 const {
   loginValidationRules,
+  forgotPasswordValidationRules,
+  resendOtpValidationRules,
+  resetPasswordValidationRules,
   editProfileValidationRules
 } = require("../validations/auth.validation");
 const router = express.Router();
@@ -26,6 +29,31 @@ router.post(
   loginValidationRules,
   validate,
   authController.login
+);
+router.post("/refresh", authController.refresh);
+router.post("/logout", authController.logout);
+
+router.post(
+  "/forgot-password",
+  forgotPasswordValidationRules,
+  validate,
+  authController.forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  resetPasswordValidationRules,
+  validate,
+  authController.resetPassword
+);
+
+router.post(
+  "/resend-otp",
+  resendOtpValidationRules,
+  validate,
+  authController.resendOtp
+);
+
 );router.post("/api/auth/refresh", authController.refresh);
 router.post("/api/auth/logout", authController.logout);
 
