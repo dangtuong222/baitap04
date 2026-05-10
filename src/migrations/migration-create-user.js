@@ -15,6 +15,9 @@ module.exports = {
       password: {
         type: Sequelize.STRING
       },
+      role: {
+        type: Sequelize.STRING
+      },
       refreshToken: {
         type: Sequelize.STRING
       },
@@ -34,9 +37,6 @@ module.exports = {
         type: Sequelize.BOOLEAN
       },
       image: {
-        type: Sequelize.STRING
-      },
-      roleId: {
         type: Sequelize.STRING
       },
       positionId: {

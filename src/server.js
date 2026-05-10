@@ -1,23 +1,49 @@
-import express from "express"; //nạp express
-import bodyParser from "body-parser"; //nạp body-parser lấy tham số từ client /user?id=7
-import viewEngine from "./config/viewEngine"; //nạp viewEngine
-import initWebRoutes from './route/web'; //nạp file web từ Route
-import connectDB from './config/configdb';
-require('dotenv').config(); //gọi hàm config của dotenv để chạy lệnh process.env.PORT
+import express from "express";
+import bodyParser from "body-parser";
+import cookieParser from "cookie-parser";
+import csrf from "csurf";
+import dotenv from "dotenv";
 
-let app = express();
+import viewEngine from "./config/viewEngine.js";
+import initWebRoutes from "./route/web.js";
+import connectDB from "./config/configdb.js";
 
-//config app
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }))
-viewEngine(app);
-initWebRoutes(app);
+// config dotenv
+dotenv.config();
+
+const app = express();
+
+// connect database
 connectDB();
 
-let port = process.env.PORT || 6969; //tạo tham số port lấy từ .env
-//Port === undefined => port = 6969
-//chạy server
+// middleware
+app.use(bodyParser.json());
+
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
+
+app.use(cookieParser());
+
+// csrf protection disabled
+// const csrfProtection = csrf({
+//     cookie: true
+// });
+
+// app.use(csrfProtection);
+
+// view engine
+viewEngine(app);
+
+// routes
+initWebRoutes(app);
+
+// port
+const port = process.env.PORT || 6969;
+
+// start server
 app.listen(port, () => {
-    //callback
-    console.log("Backend Nodejs is runing on the port : " + port)
-})
+    console.log(
+        `Backend Nodejs is running on port: ${port}`
+    );
+});
