@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../models");
+const { sendOtpEmail } = require('../services/email.service');
 
 const { User, RefreshToken, ResetOtp } = db;
 const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
@@ -12,6 +13,9 @@ const {
 } = require("../services/otpService");
 const { sendPasswordResetEmail } = require("../services/mailService");
 
+// Lưu OTP tạm thời trong memory (cho đăng ký)
+const otpStore = new Map();
+
 /* =========================
    LOGIN
 ========================= */
@@ -19,23 +23,19 @@ let login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Find user
     const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
 
-    // 2. Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Wrong password" });
     }
 
-    // 3. Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // 4. Save refresh token to DB
     await RefreshToken.create({
       token: refreshToken,
       userId: user.id,
@@ -43,11 +43,10 @@ let login = async (req, res) => {
       revoked: false,
     });
 
-    // 5. Set cookies
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      maxAge: 15 * 60 * 1000,
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
@@ -55,12 +54,10 @@ let login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // 6. Determine redirect URI based on role
     const role = user.role;
     let redirectURI = "/";
     if (role === "admin") redirectURI = "/admin/dashboard";
     else if (role === "user") redirectURI = "/user/dashboard";
-    // add more roles as needed
 
     return res.json({
       message: "Login success",
@@ -84,7 +81,6 @@ let refresh = async (req, res) => {
       return res.sendStatus(401);
     }
 
-    // 1. Check token in DB (not revoked)
     const storedToken = await RefreshToken.findOne({
       where: { token, revoked: false },
     });
@@ -92,16 +88,13 @@ let refresh = async (req, res) => {
       return res.sendStatus(403);
     }
 
-    // 2. Verify JWT
     jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
       if (err) return res.sendStatus(403);
 
       const userId = decoded.id;
 
-      // 3. Revoke old token
       await RefreshToken.update({ revoked: true }, { where: { token } });
 
-      // 4. Generate new tokens
       const newAccessToken = jwt.sign(
         { id: userId },
         process.env.ACCESS_TOKEN_SECRET,
@@ -113,7 +106,6 @@ let refresh = async (req, res) => {
         { expiresIn: "7d" }
       );
 
-      // 5. Save new refresh token
       await RefreshToken.create({
         token: newRefreshToken,
         userId,
@@ -121,7 +113,6 @@ let refresh = async (req, res) => {
         revoked: false,
       });
 
-      // 6. Set new cookies
       res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
         sameSite: "strict",
@@ -170,18 +161,14 @@ let forgotPassword = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Generate OTP
     const otp = generateOTP();
     const expiresAt = getOTPExpiry();
 
-    // Remove old OTP and create new one
     await ResetOtp.destroy({ where: { email } });
     await ResetOtp.create({ email, otp, expiresAt });
 
-    // Send email
     await sendPasswordResetEmail(email, otp, user.firstName || "User");
 
-    // Create temporary token for reset session
     const tempTokenSecret = process.env.TEMP_TOKEN_SECRET || process.env.ACCESS_TOKEN_SECRET;
     const tempToken = jwt.sign(
       { email, purpose: "password-reset" },
@@ -203,7 +190,6 @@ let resetPassword = async (req, res) => {
   try {
     const { email, otp, tempToken, newPassword } = req.body;
 
-    // Verify temp token
     const tempTokenSecret = process.env.TEMP_TOKEN_SECRET || process.env.ACCESS_TOKEN_SECRET;
     let decoded;
     try {
@@ -215,7 +201,6 @@ let resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Invalid temp token" });
     }
 
-    // Verify OTP
     const storedOtp = await ResetOtp.findOne({ where: { email } });
     if (!storedOtp) {
       return res.status(400).json({ message: "OTP not found" });
@@ -228,14 +213,11 @@ let resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Update password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await User.update({ password: hashedPassword }, { where: { email } });
 
-    // Delete used OTP
     await ResetOtp.destroy({ where: { email } });
 
-    // Optionally generate new access token (user may login automatically)
     const user = await User.findOne({ where: { email } });
     const accessToken = generateAccessToken(user);
 
@@ -250,7 +232,7 @@ let resetPassword = async (req, res) => {
 };
 
 /* =========================
-   RESEND OTP
+   RESEND OTP (FORGOT PASSWORD)
 ========================= */
 let resendOtp = async (req, res) => {
   try {
@@ -276,7 +258,150 @@ let resendOtp = async (req, res) => {
 };
 
 /* =========================
-   EDIT USER PROFILE (regular user)
+   REGISTER - GỬI OTP
+========================= */
+let register = async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, phoneNumber, address, gender } = req.body;
+
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email này đã được đăng ký.'
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + (parseInt(process.env.OTP_EXPIRY) || 300) * 1000;
+
+    otpStore.set(email, {
+      otp,
+      otpExpiry,
+      userData: { email, password: hashedPassword, firstName, lastName, phoneNumber, address, gender }
+    });
+
+    console.log(`\n=============================`);
+    console.log(`📧 OTP cho ${email}: ${otp}`);
+    console.log(`=============================\n`);
+
+    // Nếu có hàm sendOtpEmail thì gọi, nếu không thì vẫn log
+    if (typeof sendOtpEmail === 'function') {
+      await sendOtpEmail(email, otp);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Mã OTP đã được gửi tới ${email}. Vui lòng kiểm tra hộp thư.`
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server, vui lòng thử lại sau.'
+    });
+  }
+};
+
+/* =========================
+   VERIFY REGISTRATION OTP
+========================= */
+let verifyRegistrationOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const record = otpStore.get(email);
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không tìm thấy yêu cầu đăng ký cho email này.'
+      });
+    }
+
+    if (Date.now() > record.otpExpiry) {
+      otpStore.delete(email);
+      return res.status(400).json({
+        success: false,
+        message: 'Mã OTP đã hết hạn. Vui lòng đăng ký lại.'
+      });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã OTP không chính xác.'
+      });
+    }
+
+    // Tạo user vào database
+    const newUser = await User.create({
+      ...record.userData,
+      roleId: 'R3',      // tuỳ theo model của bạn
+      role: 'user'       // nếu dùng role string
+    });
+
+    otpStore.delete(email);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Đăng ký tài khoản thành công!',
+      data: {
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+      }
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server, vui lòng thử lại sau.'
+    });
+  }
+};
+
+/* =========================
+   RESEND REGISTRATION OTP
+========================= */
+let resendRegistrationOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const record = otpStore.get(email);
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không tìm thấy yêu cầu đăng ký. Vui lòng đăng ký lại.'
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + (parseInt(process.env.OTP_EXPIRY) || 300) * 1000;
+
+    otpStore.set(email, { ...record, otp, otpExpiry });
+
+    if (typeof sendOtpEmail === 'function') {
+      await sendOtpEmail(email, otp);
+    }
+    console.log(`📧 Resend OTP cho ${email}: ${otp}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Đã gửi lại mã OTP. Vui lòng kiểm tra hộp thư.'
+    });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server, vui lòng thử lại sau.'
+    });
+  }
+};
+
+/* =========================
+   EDIT USER PROFILE
 ========================= */
 let editUserProfile = async (req, res) => {
   try {
@@ -288,7 +413,6 @@ let editUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check email uniqueness if changed
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
@@ -296,7 +420,6 @@ let editUserProfile = async (req, res) => {
       }
     }
 
-    // Update allowed fields
     await user.update({
       email: email || user.email,
       firstName: firstName || user.firstName,
@@ -330,12 +453,12 @@ let editUserProfile = async (req, res) => {
 };
 
 /* =========================
-   EDIT ADMIN PROFILE (admin edits any user, with restrictions)
+   EDIT ADMIN PROFILE
 ========================= */
 let editAdminProfile = async (req, res) => {
   try {
     const adminId = req.user.id;
-    const { userId } = req.params; // ID of user to edit
+    const { userId } = req.params;
     const { email, firstName, lastName, phoneNumber, address, gender, image, positionId, role } = req.body;
 
     const targetUserId = userId ? parseInt(userId) : adminId;
@@ -344,12 +467,10 @@ let editAdminProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Admins cannot edit other admin profiles (except themselves)
     if (targetUserId !== adminId && user.role === "admin") {
       return res.status(403).json({ message: "Cannot edit other admin profiles" });
     }
 
-    // Check email uniqueness if changed
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
@@ -357,7 +478,6 @@ let editAdminProfile = async (req, res) => {
       }
     }
 
-    // Prepare update data
     const updateData = {
       email: email || user.email,
       firstName: firstName || user.firstName,
@@ -369,7 +489,6 @@ let editAdminProfile = async (req, res) => {
       positionId: positionId || user.positionId,
     };
 
-    // Only allow role change when editing a non-admin user and not editing self
     if (role && targetUserId !== adminId) {
       updateData.role = role;
     }
@@ -403,7 +522,10 @@ module.exports = {
   logout,
   forgotPassword,
   resetPassword,
-  resendOtp,
+  resendOtp,                  // Gửi lại OTP cho quên mật khẩu
+  register,                  // Đăng ký - gửi OTP
+  verifyRegistrationOtp,     // Xác thực OTP đăng ký
+  resendRegistrationOtp,     // Gửi lại OTP đăng ký
   editUserProfile,
   editAdminProfile,
 };
