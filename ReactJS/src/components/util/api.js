@@ -31,9 +31,44 @@ const logoutApi = () => {
     return axios.post(URL_API);
 };
 
+const registerApi = (email, password, firstName, lastName, phoneNumber) => {
+    const URL_API = "/api/auth/register";
+    const data = {
+        email,
+        password,
+        firstName,
+        lastName,
+        phoneNumber: phoneNumber || undefined
+    };
+
+    return axios.post(URL_API, data);
+};
+
+const verifyRegisterOtpApi = (email, otp) => {
+    const URL_API = "/api/auth/verify-otp";
+    const data = {
+        email,
+        otp
+    };
+
+    return axios.post(URL_API, data);
+};
+
+const resendRegisterOtpApi = (email) => {
+    const URL_API = "/api/auth/resend-otp";
+    const data = {
+        email
+    };
+
+    return axios.post(URL_API, data);
+};
+
 export {
     createUserApi,
     loginApi,
     getUserApi,
     logoutApi,
+    registerApi,
+    verifyRegisterOtpApi,
+    resendRegisterOtpApi,
 };
