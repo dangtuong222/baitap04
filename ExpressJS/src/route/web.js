@@ -12,6 +12,7 @@ import {
 } from '../middleware/validator.js';
 
 import authRoutes from './auth.routes.js';
+import apiRoutes from './apiRoutes.js';
 
 let router = express.Router();
 
@@ -39,6 +40,9 @@ let initWebRoutes = (app) => {
 
     // mount API routes from auth.routes
     app.use('/', authRoutes);
+
+    // mount product/category/search API routes
+    app.use('/api', apiRoutes);
 
     return app.use('/', router);
 };

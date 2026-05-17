@@ -30,9 +30,10 @@ const Header = () => {
                 ...(auth.isAuthenticated ? [{
                     label: <span onClick={() => {
                         localStorage.removeItem("access_token");
+                        localStorage.removeItem("user_info");
                         setCurrent("home");
                         dispatch({ type: 'LOGOUT' });
-                        navigate("/");
+                        navigate("/login");
                     }}>Đăng xuất</span>,
                     key: 'logout',
                 }] : [

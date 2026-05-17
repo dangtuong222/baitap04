@@ -1,0 +1,48 @@
+.search-filters-card {
+  position: sticky;
+  top: 20px;
+  border-radius: 8px;
+}
+
+.search-filters-card :global(.ant-card-head) {
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.search-filters-card :global(.ant-card-body) {
+  padding: 16px;
+}
+
+.filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.category-count {
+  color: #999;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.price-display {
+  text-align: center;
+  font-weight: 600;
+  color: #ff4d4f;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .search-filters-card {
+    position: relative;
+    top: 0;
+  }
+}

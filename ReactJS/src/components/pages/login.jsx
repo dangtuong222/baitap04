@@ -15,14 +15,17 @@ const LoginPage = () => {
         const res = await loginApi(email, password);
 
         if (res && res.token) {
+            const userData = {
+                email,
+                name: res?.name || '',
+            };
             localStorage.setItem("access_token", res.token);
+            localStorage.setItem("user_info", JSON.stringify(userData));
             dispatch({
                 type: 'LOGIN',
                 payload: {
-                    user: {
-                        email,
-                        name: res?.name || '',
-                    },
+                    user: userData,
+                    token: res.token,
                 },
             });
 

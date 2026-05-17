@@ -1,0 +1,156 @@
+.home-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.search-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 60px 24px;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.banner-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-banner h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+}
+
+.search-banner p {
+  font-size: 16px;
+  margin: 0 0 24px 0;
+  opacity: 0.9;
+}
+
+.promotions-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.promo-slide {
+  height: 300px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.promo-content {
+  color: white;
+  text-align: center;
+  padding: 40px;
+}
+
+.promo-content h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+}
+
+.promo-content p {
+  font-size: 16px;
+  margin: 0 0 20px 0;
+}
+
+.discount-label {
+  background: rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.categories-card {
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.category-card {
+  text-align: center;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.category-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+}
+
+.category-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.category-content img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.category-content h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.category-content p {
+  margin: 0;
+  font-size: 12px;
+  color: #999;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+@media (max-width: 768px) {
+  .search-banner {
+    padding: 40px 16px;
+  }
+
+  .search-banner h1 {
+    font-size: 24px;
+  }
+
+  .search-banner p {
+    font-size: 14px;
+  }
+
+  .promo-slide {
+    height: 200px;
+  }
+
+  .promo-content {
+    padding: 20px;
+  }
+
+  .promo-content h2 {
+    font-size: 20px;
+  }
+
+  .promo-content p {
+    font-size: 14px;
+  }
+}
