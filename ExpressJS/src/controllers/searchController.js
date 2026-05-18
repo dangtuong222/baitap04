@@ -22,12 +22,20 @@ const searchProducts = async (req, res) => {
     const where = {};
     const order = [];
 
+    // Validate pagination
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit))); // Max 100 items per page
+
+    // Validate price range
+    let minPriceNum = minPrice ? parseFloat(minPrice) : 0;
+    let maxPriceNum = maxPrice ? parseFloat(maxPrice) : 10000000;
+    if (minPriceNum > maxPriceNum) {
+      [minPriceNum, maxPriceNum] = [maxPriceNum, minPriceNum]; // Swap if inverted
+    }
+
     // Search query
     if (q) {
-      where[Op.or] = [
-        { name: { [Op.like]: `%${q}%` } },
-        { description: { [Op.like]: `%${q}%` } }
-      ];
+      where.name = { [Op.like]: `%${q}%` };
     }
 
     // Category filter
@@ -35,11 +43,11 @@ const searchProducts = async (req, res) => {
       where.categoryId = category;
     }
 
-    // Price range filter
-    if (minPrice || maxPrice) {
+    // Price range filter with validation
+    if (minPriceNum >= 0 || maxPriceNum <= 10000000) {
       where.price = {};
-      if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
-      if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
+      if (minPriceNum > 0) where.price[Op.gte] = minPriceNum;
+      if (maxPriceNum < 10000000) where.price[Op.lte] = maxPriceNum;
     }
 
     // Rating filter
@@ -83,8 +91,8 @@ const searchProducts = async (req, res) => {
         }
       ],
       order,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: limitNum,
+      offset: (pageNum - 1) * limitNum,
       distinct: true
     });
 
@@ -93,14 +101,14 @@ const searchProducts = async (req, res) => {
       data: rows,
       pagination: {
         totalItems: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: parseInt(page),
-        itemsPerPage: parseInt(limit)
+        totalPages: Math.ceil(count / limitNum),
+        currentPage: pageNum,
+        itemsPerPage: limitNum
       },
       filters: {
         query: q,
         category,
-        priceRange: { min: minPrice, max: maxPrice },
+        priceRange: { min: minPriceNum, max: maxPriceNum },
         rating,
         sort
       }

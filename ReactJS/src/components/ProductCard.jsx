@@ -17,7 +17,19 @@ const ProductCard = ({ product, onAddToCart }) => {
     }
   };
 
-  const mainImage = product.images?.[0]?.imageUrl || 'https://via.placeholder.com/300x300?text=No+Image';
+  const getImageUrl = (imageUrl) => {
+    if (!imageUrl) {
+      // Placeholder xám
+      return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23f0f0f0" width="300" height="300"/%3E%3Ctext x="50%25" y="50%25" font-size="18" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+    }
+    // Nếu là relative path, thêm backend URL
+    if (imageUrl.startsWith('/')) {
+      return `http://localhost:8080${imageUrl}`;
+    }
+    return imageUrl;
+  };
+
+  const mainImage = getImageUrl(product.images?.[0]?.imageUrl);
 
   return (
     <Card

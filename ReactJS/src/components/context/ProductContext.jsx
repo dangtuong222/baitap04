@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useCallback } from 'react';
-import axios from 'axios';
+import axiosClient from '../util/axios.customize.js';
 
 export const ProductContext = createContext();
 
@@ -7,10 +7,11 @@ const initialState = {
   products: [],
   categories: [],
   promotions: [],
+  priceRange: [0, 10000000], // ✅ Dynamic price range from API
   filters: {
     query: '',
     category: null,
-    priceRange: [0, 10000],
+    priceRange: [0, 10000000],
     rating: null,
     sort: 'latest',
     page: 1,
@@ -24,7 +25,7 @@ const initialState = {
   loading: false,
   error: null,
   cart: [],
-  apiCache: {} // Cache for API responses
+  apiCache: {}
 };
 
 const actionTypes = {
@@ -35,6 +36,7 @@ const actionTypes = {
   SET_PAGINATION: 'SET_PAGINATION',
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
+  SET_PRICE_RANGE: 'SET_PRICE_RANGE', // ✅ New action
   ADD_TO_CART: 'ADD_TO_CART',
   REMOVE_FROM_CART: 'REMOVE_FROM_CART',
   UPDATE_CART_QUANTITY: 'UPDATE_CART_QUANTITY',
@@ -64,6 +66,9 @@ function productReducer(state, action) {
     
     case actionTypes.SET_ERROR:
       return { ...state, error: action.payload };
+    
+    case actionTypes.SET_PRICE_RANGE: // ✅ Handle dynamic price range
+      return { ...state, priceRange: action.payload, filters: { ...state.filters, priceRange: action.payload } };
     
     case actionTypes.ADD_TO_CART: {
       const existingItem = state.cart.find(item => item.id === action.payload.id);
@@ -110,32 +115,55 @@ function productReducer(state, action) {
 export function ProductProvider({ children }) {
   const [state, dispatch] = useReducer(productReducer, initialState);
 
-  // API call functions
+  // ✅ NEW: Fetch dynamic price range from API
+  const fetchPriceRange = useCallback(async () => {
+    if (state.apiCache.priceRange) {
+      const range = [state.apiCache.priceRange.minPrice, state.apiCache.priceRange.maxPrice];
+      dispatch({ type: actionTypes.SET_PRICE_RANGE, payload: range });
+      return;
+    }
+    try {
+      const res = await axiosClient.get('/api/products/price-range');
+      if (res.success) {
+        const range = [res.data.minPrice, res.data.maxPrice];
+        dispatch({ type: actionTypes.SET_PRICE_RANGE, payload: range });
+        dispatch({
+          type: actionTypes.SET_CACHE,
+          payload: { key: 'priceRange', value: res.data }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching price range:', error);
+    }
+  }, [state.apiCache.priceRange]);
+
+  // ✅ UPDATED: fetchProducts with standardized parameter names
   const fetchProducts = useCallback(async (filters = {}) => {
     dispatch({ type: actionTypes.SET_LOADING, payload: true });
     try {
       const params = {
         q: filters.query || '',
+        search: filters.query || '',
         category: filters.category,
         minPrice: filters.priceRange?.[0] || 0,
-        maxPrice: filters.priceRange?.[1] || 10000,
+        maxPrice: filters.priceRange?.[1] || state.priceRange[1],
         rating: filters.rating,
         sort: filters.sort || 'latest',
         page: filters.page || 1,
         limit: filters.limit || 12
       };
 
-      const endpoint = filters.query ? '/api/search' : '/api/products';
-      const res = await axios.get(endpoint, { params });
+      // ✅ Always use /api/products endpoint (both support all filters now)
+      const res = await axiosClient.get('/api/products', { params });
 
-      if (res.data.success) {
-        dispatch({ type: actionTypes.SET_PRODUCTS, payload: res.data.data });
+      if (res.success) {
+        dispatch({ type: actionTypes.SET_PRODUCTS, payload: res.data });
         dispatch({
           type: actionTypes.SET_PAGINATION,
           payload: {
-            current: res.data.pagination.currentPage,
-            pageSize: res.data.pagination.itemsPerPage,
-            total: res.data.pagination.totalItems
+            current: res.pagination.currentPage,
+            pageSize: res.pagination.itemsPerPage,
+            total: res.pagination.totalItems
           }
         });
       }
@@ -146,46 +174,35 @@ export function ProductProvider({ children }) {
     } finally {
       dispatch({ type: actionTypes.SET_LOADING, payload: false });
     }
-  }, []);
+  }, [state.priceRange]);
 
   const fetchCategories = useCallback(async () => {
-    // Check cache first
     if (state.apiCache.categories) {
       dispatch({ type: actionTypes.SET_CATEGORIES, payload: state.apiCache.categories });
       return;
     }
-
     try {
-      const res = await axios.get('/api/categories');
-      if (res.data.success) {
-        dispatch({ type: actionTypes.SET_CATEGORIES, payload: res.data.data });
+      const res = await axiosClient.get('/api/categories');
+      if (res.success) {
+        dispatch({ type: actionTypes.SET_CATEGORIES, payload: res.data });
         dispatch({
           type: actionTypes.SET_CACHE,
-          payload: { key: 'categories', value: res.data.data }
+          payload: { key: 'categories', value: res.data }
         });
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      dispatch({ type: actionTypes.SET_ERROR, payload: error.message });
     }
   }, [state.apiCache.categories]);
 
   const fetchPromotions = useCallback(async () => {
-    // Check cache first
     if (state.apiCache.promotions) {
       dispatch({ type: actionTypes.SET_PROMOTIONS, payload: state.apiCache.promotions });
       return;
     }
 
     try {
-      const res = await axios.get('/api/promotions');
-      if (res.data.success) {
-        dispatch({ type: actionTypes.SET_PROMOTIONS, payload: res.data.data });
-        dispatch({
-          type: actionTypes.SET_CACHE,
-          payload: { key: 'promotions', value: res.data.data }
-        });
-      }
+      dispatch({ type: actionTypes.SET_PROMOTIONS, payload: [] });
     } catch (error) {
       console.error('Error fetching promotions:', error);
       dispatch({ type: actionTypes.SET_ERROR, payload: error.message });

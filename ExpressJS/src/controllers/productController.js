@@ -6,6 +6,35 @@ const Category = db.Category;
 const ProductImage = db.ProductImage;
 const Promotion = db.Promotion;
 
+// ✅ NEW: Get price range from database
+const getPriceRange = async (req, res) => {
+  try {
+    const priceData = await Product.findAll({
+      attributes: [
+        [db.sequelize.fn('MIN', db.sequelize.col('price')), 'minPrice'],
+        [db.sequelize.fn('MAX', db.sequelize.col('price')), 'maxPrice']
+      ],
+      raw: true
+    });
+
+    const { minPrice = 0, maxPrice = 10000000 } = priceData[0] || {};
+
+    res.status(200).json({
+      success: true,
+      data: {
+        minPrice: parseInt(minPrice) || 0,
+        maxPrice: parseInt(maxPrice) || 10000000
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving price range',
+      error: error.message
+    });
+  }
+};
+
 // Get all products with filtering, sorting, and pagination
 const getAllProducts = async (req, res) => {
   try {
@@ -14,36 +43,49 @@ const getAllProducts = async (req, res) => {
       limit = 12, 
       category, 
       search, 
+      q,  // ✅ Support 'q' as well
       sort = 'latest',
       minPrice,
       maxPrice,
       rating
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    // ✅ Support both 'search' and 'q' parameters
+    const searchQuery = search || q || '';
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
     const where = {};
     const order = [];
+
+    // ✅ Validate price range
+    let minPriceNum = minPrice ? parseFloat(minPrice) : 0;
+    let maxPriceNum = maxPrice ? parseFloat(maxPrice) : 10000000;
+    if (minPriceNum > maxPriceNum) {
+      [minPriceNum, maxPriceNum] = [maxPriceNum, minPriceNum];
+    }
 
     // Filter by category
     if (category) {
       where.categoryId = category;
     }
 
-    // Search by name
-    if (search) {
-      where.name = { [Op.like]: `%${search}%` };
+    // ✅ Search by name (both 'search' and 'q')
+    if (searchQuery) {
+      where.name = { [Op.like]: `%${searchQuery}%` };
     }
 
-    // Filter by price range
-    if (minPrice || maxPrice) {
+    // ✅ Filter by price range with validation
+    if (minPriceNum >= 0 || maxPriceNum <= 10000000) {
       where.price = {};
-      if (minPrice) where.price[Op.gte] = minPrice;
-      if (maxPrice) where.price[Op.lte] = maxPrice;
+      if (minPriceNum > 0) where.price[Op.gte] = minPriceNum;
+      if (maxPriceNum < 10000000) where.price[Op.lte] = maxPriceNum;
     }
 
-    // Filter by rating
+    // ✅ Filter by rating
     if (rating) {
-      where.rating = { [Op.gte]: rating };
+      where.rating = { [Op.gte]: parseFloat(rating) };
     }
 
     // Sort options
@@ -77,8 +119,8 @@ const getAllProducts = async (req, res) => {
         { association: 'images', attributes: ['imageUrl', 'alt'] }
       ],
       order,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: limitNum,
+      offset,
       distinct: true
     });
 
@@ -87,9 +129,16 @@ const getAllProducts = async (req, res) => {
       data: rows,
       pagination: {
         totalItems: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: parseInt(page),
-        itemsPerPage: parseInt(limit)
+        totalPages: Math.ceil(count / limitNum),
+        currentPage: pageNum,
+        itemsPerPage: limitNum
+      },
+      filters: {
+        query: searchQuery,
+        category,
+        priceRange: { min: minPriceNum, max: maxPriceNum },
+        rating,
+        sort
       }
     });
   } catch (error) {
@@ -236,6 +285,7 @@ const getProductsByCategory = async (req, res) => {
 
 export default {
   getAllProducts,
+  getPriceRange,
   getProductDetail,
   getSimilarProducts,
   getProductsByCategory

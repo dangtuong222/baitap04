@@ -5,7 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon --exec babel-node src/server.js"
+    "start": "nodemon --exec babel-node src/server.js",
+    "dev": "nodemon --exec babel-node src/server.js",
+    "migrate": "sequelize db:migrate",
+    "migrate:undo": "sequelize db:migrate:undo:all",
+    "seed": "node seed-products.js",
+    "reseed": "node reseed-products.js"
   },
   "author": "Nhom 13",
   "license": "ISC",

@@ -25,7 +25,7 @@ const SearchPage = () => {
     setFilters({
       query,
       category: category ? parseInt(category) : null,
-      priceRange: [0, 10000],
+      priceRange: [0, 10000000],
       rating: null,
       sort: 'latest',
       page: 1,
@@ -64,7 +64,7 @@ const SearchPage = () => {
     setFilters({
       query: filters.query,
       category: null,
-      priceRange: [0, 10000],
+      priceRange: [0, 10000000],
       rating: null,
       sort: 'latest',
       page: 1,

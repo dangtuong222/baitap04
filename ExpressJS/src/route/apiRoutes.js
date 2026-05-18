@@ -7,6 +7,7 @@ import promotionController from '../controllers/promotionController.js';
 const router = express.Router();
 
 // Product routes
+router.get('/products/price-range', productController.getPriceRange);
 router.get('/products', productController.getAllProducts);
 router.get('/products/:id', productController.getProductDetail);
 router.get('/products/:id/similar', productController.getSimilarProducts);

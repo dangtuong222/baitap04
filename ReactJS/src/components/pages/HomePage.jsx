@@ -5,6 +5,7 @@ import { SearchOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useProducts } from '../useProducts';
 import { useFilters } from '../useFilters';
 import ProductCard from '../ProductCard';
+import axiosClient from '../util/axios.customize.js';
 import './HomePage.css';
 
 const HomePage = () => {
@@ -22,18 +23,17 @@ const HomePage = () => {
 
   const fetchInitialData = async () => {
     await Promise.all([
-      fetchProducts({ sort: 'latest', page: 1, limit: 12 }),
-      fetchCategories(),
-      fetchPromotions()
+      fetchProducts({ sort: 'latest', page: 1, limit: 12, priceRange: [0, 10000000] }),
+      fetchCategories()
+      // Skip promotions for now - no data yet
     ]);
   };
 
   const fetchPromotions = async () => {
     try {
-      const res = await fetch('/api/promotions');
-      const data = await res.json();
-      if (data.success) {
-        setPromotions(data.data);
+      const res = await axiosClient.get('/api/promotions');
+      if (res.success) {
+        setPromotions(res.data);
       }
     } catch (error) {
       console.error('Error fetching promotions:', error);
@@ -53,7 +53,12 @@ const HomePage = () => {
       bestseller: 'bestseller',
       rating: 'rating'
     };
-    await fetchProducts({ sort: sortMap[key], page: 1, limit: 12 });
+    await fetchProducts({ 
+      sort: sortMap[key], 
+      page: 1, 
+      limit: 12,
+      priceRange: [0, 10000000] // Thêm dòng này
+    });
   };
 
   const handlePaginationChange = async (page) => {
@@ -62,7 +67,12 @@ const HomePage = () => {
       bestseller: 'bestseller',
       rating: 'rating'
     };
-    await fetchProducts({ sort: sortMap[activeTab], page, limit: 12 });
+    await fetchProducts({ 
+      sort: sortMap[activeTab], 
+      page, 
+      limit: 12,
+      priceRange: [0, 10000000] // Thêm dòng này
+    });
     window.scrollTo(0, 0);
   };
 

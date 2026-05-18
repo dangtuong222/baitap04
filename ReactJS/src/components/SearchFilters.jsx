@@ -14,7 +14,7 @@ const SearchFilters = ({
   loading = false,
   onReset
 }) => {
-  const priceRangeMax = 10000;
+  const priceRangeMax = 10000000;
 
   return (
     <Card className="search-filters-card" title={<><FilterOutlined /> Bộ lọc</>}>
