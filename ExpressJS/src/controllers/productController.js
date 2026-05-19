@@ -77,10 +77,11 @@ const getAllProducts = async (req, res) => {
     }
 
     // ✅ Filter by price range with validation
-    if (minPriceNum >= 0 || maxPriceNum <= 10000000) {
-      where.price = {};
-      if (minPriceNum > 0) where.price[Op.gte] = minPriceNum;
-      if (maxPriceNum < 10000000) where.price[Op.lte] = maxPriceNum;
+    const priceFilters = {};
+    if (minPriceNum > 0) priceFilters[Op.gte] = minPriceNum;
+    if (maxPriceNum < 10000000) priceFilters[Op.lte] = maxPriceNum;
+    if (Object.keys(priceFilters).length > 0) {
+      where.price = priceFilters;
     }
 
     // ✅ Filter by rating
@@ -107,6 +108,10 @@ const getAllProducts = async (req, res) => {
         break;
       case 'rating':
         order.push(['rating', 'DESC']);
+        break;
+      case 'viewed':
+      case 'most-viewed':
+        order.push(['viewCount', 'DESC']);
         break;
       default:
         order.push(['createdAt', 'DESC']);
@@ -185,6 +190,9 @@ const getProductDetail = async (req, res) => {
       });
     }
 
+    await Product.increment('viewCount', { by: 1, where: { id } });
+    product.viewCount = (product.viewCount || 0) + 1;
+
     res.status(200).json({
       success: true,
       data: product
@@ -233,6 +241,82 @@ const getSimilarProducts = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error retrieving similar products',
+      error: error.message
+    });
+  }
+};
+
+// Get top bestsellers with pagination
+const getTopBestsellers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const { count, rows } = await Product.findAndCountAll({
+      include: [
+        { association: 'category', attributes: ['id', 'name'] },
+        { association: 'images', attributes: ['imageUrl', 'alt'] }
+      ],
+      order: [['sold', 'DESC']],
+      limit: limitNum,
+      offset,
+      distinct: true
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rows,
+      pagination: {
+        totalItems: count,
+        totalPages: Math.ceil(count / limitNum),
+        currentPage: pageNum,
+        itemsPerPage: limitNum
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving top bestsellers',
+      error: error.message
+    });
+  }
+};
+
+// Get top most viewed with pagination
+const getMostViewed = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const { count, rows } = await Product.findAndCountAll({
+      include: [
+        { association: 'category', attributes: ['id', 'name'] },
+        { association: 'images', attributes: ['imageUrl', 'alt'] }
+      ],
+      order: [['viewCount', 'DESC']],
+      limit: limitNum,
+      offset,
+      distinct: true
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rows,
+      pagination: {
+        totalItems: count,
+        totalPages: Math.ceil(count / limitNum),
+        currentPage: pageNum,
+        itemsPerPage: limitNum
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving most viewed products',
       error: error.message
     });
   }
@@ -288,5 +372,7 @@ export default {
   getPriceRange,
   getProductDetail,
   getSimilarProducts,
-  getProductsByCategory
+  getProductsByCategory,
+  getTopBestsellers,
+  getMostViewed
 };

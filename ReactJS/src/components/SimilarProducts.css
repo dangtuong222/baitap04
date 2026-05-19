@@ -2,15 +2,15 @@
   margin-top: 40px;
 }
 
-.similar-products-card :global(.ant-card-head-title) {
+.similar-products-card .ant-card-head-title {
   font-size: 18px;
   font-weight: 600;
 }
 
-.similar-products-card :global(.ant-col) {
+.similar-products-card .ant-col {
   cursor: pointer;
 }
 
-.similar-products-card :global(.ant-col:hover) .product-card {
+.similar-products-card .ant-col:hover .product-card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }

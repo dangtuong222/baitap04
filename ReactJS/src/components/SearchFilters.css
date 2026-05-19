@@ -4,13 +4,13 @@
   border-radius: 8px;
 }
 
-.search-filters-card :global(.ant-card-head) {
+.search-filters-card .ant-card-head {
   padding: 12px 16px;
   background: #fafafa;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.search-filters-card :global(.ant-card-body) {
+.search-filters-card .ant-card-body {
   padding: 16px;
 }
 

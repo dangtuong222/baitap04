@@ -1,35 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Spin, Empty, message, Carousel, Button, Input, Space, Tabs, Pagination } from 'antd';
-import { SearchOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Spin, Empty, Carousel, Button, Input, Space, Tabs, Pagination } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { useProducts } from '../useProducts';
 import { useFilters } from '../useFilters';
 import ProductCard from '../ProductCard';
+import HorizontalProductCarousel from '../HorizontalProductCarousel';
 import axiosClient from '../util/axios.customize.js';
 import './HomePage.css';
 
 const HomePage = () => {
   const navigate = useNavigate();
   const { products, loading, pagination, fetchProducts } = useProducts();
-  const { categories, fetchCategories } = useFilters();
+  const { categories, fetchCategories, fetchPriceRange, priceRange } = useFilters();
   
   const [promotions, setPromotions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('latest');
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
+    fetchPriceRange();
+    fetchCategories();
+  }, [fetchPriceRange, fetchCategories]);
 
-  const fetchInitialData = async () => {
-    await Promise.all([
-      fetchProducts({ sort: 'latest', page: 1, limit: 12, priceRange: [0, 10000000] }),
-      fetchCategories()
-      // Skip promotions for now - no data yet
-    ]);
-  };
+  useEffect(() => {
+    fetchProducts({ sort: 'latest', page: 1, limit: 12, priceRange });
+  }, [fetchProducts, priceRange]);
 
-  const fetchPromotions = async () => {
+  const fetchPromotions = useCallback(async () => {
     try {
       const res = await axiosClient.get('/api/promotions');
       if (res.success) {
@@ -38,7 +36,11 @@ const HomePage = () => {
     } catch (error) {
       console.error('Error fetching promotions:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPromotions();
+  }, [fetchPromotions]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -57,7 +59,7 @@ const HomePage = () => {
       sort: sortMap[key], 
       page: 1, 
       limit: 12,
-      priceRange: [0, 10000000] // Thêm dòng này
+      priceRange
     });
   };
 
@@ -71,7 +73,7 @@ const HomePage = () => {
       sort: sortMap[activeTab], 
       page, 
       limit: 12,
-      priceRange: [0, 10000000] // Thêm dòng này
+      priceRange
     });
     window.scrollTo(0, 0);
   };
@@ -214,6 +216,18 @@ const HomePage = () => {
           </>
         )}
       </Card>
+
+      <HorizontalProductCarousel
+        title="🔥 10 sản phẩm bán chạy nhất"
+        endpoint="/api/products/bestsellers"
+        pageSize={10}
+      />
+
+      <HorizontalProductCarousel
+        title="👀 10 sản phẩm xem nhiều nhất"
+        endpoint="/api/products/most-viewed"
+        pageSize={10}
+      />
     </div>
   );
 };

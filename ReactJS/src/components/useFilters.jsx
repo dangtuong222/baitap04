@@ -12,6 +12,8 @@ export function useFilters() {
     setFilters: context.setFilters,
     fetchProducts: context.fetchProducts,
     categories: context.state.categories,
-    fetchCategories: context.fetchCategories
+    priceRange: context.state.priceRange,
+    fetchCategories: context.fetchCategories,
+    fetchPriceRange: context.fetchPriceRange
   };
 }

@@ -44,10 +44,11 @@ const searchProducts = async (req, res) => {
     }
 
     // Price range filter with validation
-    if (minPriceNum >= 0 || maxPriceNum <= 10000000) {
-      where.price = {};
-      if (minPriceNum > 0) where.price[Op.gte] = minPriceNum;
-      if (maxPriceNum < 10000000) where.price[Op.lte] = maxPriceNum;
+    const priceFilters = {};
+    if (minPriceNum > 0) priceFilters[Op.gte] = minPriceNum;
+    if (maxPriceNum < 10000000) priceFilters[Op.lte] = maxPriceNum;
+    if (Object.keys(priceFilters).length > 0) {
+      where.price = priceFilters;
     }
 
     // Rating filter
@@ -68,6 +69,10 @@ const searchProducts = async (req, res) => {
         break;
       case 'rating':
         order.push(['rating', 'DESC']);
+        break;
+      case 'viewed':
+      case 'most-viewed':
+        order.push(['viewCount', 'DESC']);
         break;
       case 'oldest':
         order.push(['createdAt', 'ASC']);

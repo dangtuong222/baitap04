@@ -30,6 +30,7 @@ const initialState = {
 
 const actionTypes = {
   SET_PRODUCTS: 'SET_PRODUCTS',
+  APPEND_PRODUCTS: 'APPEND_PRODUCTS',
   SET_CATEGORIES: 'SET_CATEGORIES',
   SET_PROMOTIONS: 'SET_PROMOTIONS',
   SET_FILTERS: 'SET_FILTERS',
@@ -44,10 +45,19 @@ const actionTypes = {
   SET_CACHE: 'SET_CACHE'
 };
 
+const mergeProducts = (existing, incoming) => {
+  return Array.from(
+    new Map([...existing, ...incoming].map((product) => [product.id, product])).values()
+  );
+};
+
 function productReducer(state, action) {
   switch (action.type) {
     case actionTypes.SET_PRODUCTS:
       return { ...state, products: action.payload };
+
+    case actionTypes.APPEND_PRODUCTS:
+      return { ...state, products: mergeProducts(state.products, action.payload) };
     
     case actionTypes.SET_CATEGORIES:
       return { ...state, categories: action.payload };
@@ -138,7 +148,7 @@ export function ProductProvider({ children }) {
   }, [state.apiCache.priceRange]);
 
   // ✅ UPDATED: fetchProducts with standardized parameter names
-  const fetchProducts = useCallback(async (filters = {}) => {
+  const fetchProducts = useCallback(async (filters = {}, options = {}) => {
     dispatch({ type: actionTypes.SET_LOADING, payload: true });
     try {
       const params = {
@@ -157,7 +167,12 @@ export function ProductProvider({ children }) {
       const res = await axiosClient.get('/api/products', { params });
 
       if (res.success) {
-        dispatch({ type: actionTypes.SET_PRODUCTS, payload: res.data });
+        const shouldAppend = options.append === true;
+        if (shouldAppend) {
+          dispatch({ type: actionTypes.APPEND_PRODUCTS, payload: res.data });
+        } else {
+          dispatch({ type: actionTypes.SET_PRODUCTS, payload: res.data });
+        }
         dispatch({
           type: actionTypes.SET_PAGINATION,
           payload: {
@@ -242,6 +257,7 @@ export function ProductProvider({ children }) {
     state,
     dispatch,
     fetchProducts,
+    fetchPriceRange,
     fetchCategories,
     fetchPromotions,
     setFilters,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Spin, Empty, message, Tag, Divider, Button, Space, Breadcrumb, Tabs, Badge } from 'antd';
 import { ArrowLeftOutlined, ShoppingCartOutlined, HeartOutlined, ShareAltOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from '../util/axios.customize.js';
 import { useCart } from '../useCart';
 import ImageSwiper from '../ImageSwiper';
 import QuantitySelector from '../QuantitySelector';
@@ -26,10 +26,10 @@ const ProductDetailPage = () => {
   const fetchProductDetail = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/products/${id}`);
-      if (res.data.success) {
-        setProduct(res.data.data);
-        fetchSimilarProducts(res.data.data.id, res.data.data.categoryId);
+      const res = await axiosClient.get(`/api/products/${id}`);
+      if (res.success) {
+        setProduct(res.data);
+        fetchSimilarProducts(res.data.id, res.data.categoryId);
       }
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -42,9 +42,9 @@ const ProductDetailPage = () => {
   const fetchSimilarProducts = async (productId, categoryId) => {
     setSimilarLoading(true);
     try {
-      const res = await axios.get(`/api/products/${productId}/similar?limit=6`);
-      if (res.data.success) {
-        setSimilarProducts(res.data.data);
+      const res = await axiosClient.get(`/api/products/${productId}/similar?limit=6`);
+      if (res.success) {
+        setSimilarProducts(res.data);
       }
     } catch (error) {
       console.error('Error fetching similar products:', error);
@@ -122,6 +122,9 @@ const ProductDetailPage = () => {
               <div className="rating-section">
                 <span className="rating">
                   ⭐ {product.rating?.toFixed(1) || 0} ({product.sold || 0} bán)
+                </span>
+                <span className="rating-meta">
+                  {product.viewCount || 0} lượt xem
                 </span>
               </div>
 

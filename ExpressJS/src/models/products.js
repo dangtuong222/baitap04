@@ -50,6 +50,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       defaultValue: 0
     },
+    viewCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
     rating: {
       type: DataTypes.FLOAT,
       defaultValue: 0

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Row, Col, Checkbox, Slider, Button, Space, Collapse, Spin } from 'antd';
+import { Card, Checkbox, Slider, Button, Space, Spin } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
 import './SearchFilters.css';
 
@@ -10,11 +10,18 @@ const SearchFilters = ({
   onRatingChange,
   selectedCategory,
   priceRange,
+  priceRangeLimit = [0, 10000000],
   selectedRating,
   loading = false,
   onReset
 }) => {
-  const priceRangeMax = 10000000;
+  const [priceRangeMin, priceRangeMax] = Array.isArray(priceRangeLimit) && priceRangeLimit.length === 2
+    ? priceRangeLimit
+    : [0, 10000000];
+  const safePriceRange = Array.isArray(priceRange) && priceRange.length === 2
+    ? priceRange
+    : [priceRangeMin, priceRangeMax];
+  const formatPrice = (value) => `${value.toLocaleString('vi-VN')}₫`;
 
   return (
     <Card className="search-filters-card" title={<><FilterOutlined /> Bộ lọc</>}>
@@ -43,17 +50,17 @@ const SearchFilters = ({
             <h3 className="filter-title">Khoảng giá</h3>
             <Slider
               range
-              min={0}
+              min={priceRangeMin}
               max={priceRangeMax}
-              value={priceRange}
+              value={safePriceRange}
               onChange={onPriceChange}
               marks={{
-                0: '$0',
-                [priceRangeMax]: `$${priceRangeMax}`
+                [priceRangeMin]: formatPrice(priceRangeMin),
+                [priceRangeMax]: formatPrice(priceRangeMax)
               }}
             />
             <div className="price-display">
-              ${priceRange[0]} - ${priceRange[1]}
+              {formatPrice(safePriceRange[0])} - {formatPrice(safePriceRange[1])}
             </div>
           </div>
 

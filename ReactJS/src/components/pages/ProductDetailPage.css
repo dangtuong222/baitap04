@@ -34,6 +34,11 @@
   font-weight: 600;
 }
 
+.rating-meta {
+  font-size: 14px;
+  color: #666;
+}
+
 .price-section {
   background: #fafafa;
   padding: 16px;

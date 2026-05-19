@@ -9,8 +9,8 @@
     "dev": "nodemon --exec babel-node src/server.js",
     "migrate": "sequelize db:migrate",
     "migrate:undo": "sequelize db:migrate:undo:all",
-    "seed": "node seed-products.js",
-    "reseed": "node reseed-products.js"
+    "seed": "babel-node seed-products.js",
+    "reseed": "babel-node reseed-products.js"
   },
   "author": "Nhom 13",
   "license": "ISC",
