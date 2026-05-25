@@ -5,6 +5,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { useProducts } from '../useProducts';
 import { useFilters } from '../useFilters';
 import ProductCard from '../ProductCard';
+import { useCart } from '../useCart';
 import HorizontalProductCarousel from '../HorizontalProductCarousel';
 import axiosClient from '../util/axios.customize.js';
 import './HomePage.css';
@@ -12,6 +13,7 @@ import './HomePage.css';
 const HomePage = () => {
   const navigate = useNavigate();
   const { products, loading, pagination, fetchProducts } = useProducts();
+  const { addToCart } = useCart();
   const { categories, fetchCategories, fetchPriceRange, priceRange } = useFilters();
   
   const [promotions, setPromotions] = useState([]);
@@ -197,7 +199,7 @@ const HomePage = () => {
                   lg={6}
                   onClick={() => navigate(`/product/${product.id}`)}
                 >
-                  <ProductCard product={product} />
+                  <ProductCard product={product} onAddToCart={addToCart} />
                 </Col>
               ))}
             </Row>

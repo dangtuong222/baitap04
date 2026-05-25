@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import { AuthContext } from './context/auth.context';
 
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, allowedRoles }) => {
     const { auth, appLoading } = useContext(AuthContext);
 
     if (appLoading) {
@@ -21,6 +21,13 @@ const PrivateRoute = ({ children }) => {
 
     if (!auth.isAuthenticated) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (allowedRoles?.length) {
+        const currentRole = auth?.user?.role;
+        if (!currentRole || !allowedRoles.includes(currentRole)) {
+            return <Navigate to="/home" replace />;
+        }
     }
 
     return children;

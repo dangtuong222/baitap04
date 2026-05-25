@@ -12,7 +12,7 @@ import './ProductDetailPage.css';
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, cartLoading } = useCart();
   
   const [product, setProduct] = useState(null);
   const [similarProducts, setSimilarProducts] = useState([]);
@@ -53,10 +53,14 @@ const ProductDetailPage = () => {
     }
   };
 
-  const handleAddToCart = (quantity) => {
+  const handleAddToCart = async (quantity) => {
     if (product) {
-      addToCart(product, quantity);
-      message.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
+      const res = await addToCart(product, quantity);
+      if (res?.success) {
+        message.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
+      } else {
+        message.error(res?.message || 'Không thể thêm vào giỏ hàng');
+      }
     }
   };
 
@@ -176,6 +180,7 @@ const ProductDetailPage = () => {
               <QuantitySelector
                 stock={product.stock || 0}
                 onAddToCart={handleAddToCart}
+                loading={cartLoading}
               />
 
               {/* Actions */}

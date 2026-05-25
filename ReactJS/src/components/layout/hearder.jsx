@@ -1,25 +1,52 @@
-import React, { useContext, useState } from 'react';
-import { UsergroupAddOutlined, HomeOutlined, SettingOutlined } from '@ant-design/icons';
-import { Menu } from 'antd';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useContext, useMemo } from 'react';
+import { HomeOutlined, SettingOutlined, ShoppingCartOutlined, ProfileOutlined } from '@ant-design/icons';
+import { Badge, Menu } from 'antd';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/auth.context';
+import { useCart } from '../useCart';
 
 const Header = () => {
 
     const navigate = useNavigate();
     const { auth, dispatch } = useContext(AuthContext);
-    const [current, setCurrent] = useState('mail');
-    console.log(">>> check auth: ", auth);
+    const { cartItemCount } = useCart();
+    const location = useLocation();
+
+    const current = useMemo(() => {
+        if (location.pathname.startsWith('/admin')) return 'admin-dashboard';
+        if (location.pathname.startsWith('/cart')) return 'cart';
+        if (location.pathname.startsWith('/orders')) return 'orders';
+        if (location.pathname.startsWith('/search')) return 'search';
+        if (location.pathname.startsWith('/product')) return 'product';
+        return 'home';
+    }, [location.pathname]);
+
     const items = [
         {
-            label: <Link to="/">Home Page</Link>,
+            label: <Link to="/home">Trang chủ</Link>,
             key: 'home',
             icon: <HomeOutlined />,
         },
+        ...(auth?.user?.role === 'admin' ? [{
+            label: <Link to="/admin/dashboard">Quản lý đơn</Link>,
+            key: 'admin-dashboard',
+            icon: <ProfileOutlined />,
+        }] : []),
         ...(auth.isAuthenticated ? [{
-            label: <Link to="/user">Users</Link>,
-            key: 'user',
-            icon: <UsergroupAddOutlined />,
+            label: (
+                <Link to="/cart">
+                    <Badge count={cartItemCount} size="small">
+                        Giỏ hàng
+                    </Badge>
+                </Link>
+            ),
+            key: 'cart',
+            icon: <ShoppingCartOutlined />,
+        }] : []),
+        ...(auth.isAuthenticated ? [{
+            label: <Link to="/orders">Đơn hàng</Link>,
+            key: 'orders',
+            icon: <ProfileOutlined />,
         }] : []),
 
         {
@@ -45,11 +72,9 @@ const Header = () => {
             ],
         },
     ];
-    const [current, setCurrent] = useState('mail');
-    const onClick = (e) => {
-        console.log('click ', e);
-        setCurrent(e.key);
-    };
+
+    const onClick = () => {};
+
     return <Menu onClick={onClick} selectedKeys={[current]} mode="horizontal" items={items} />;
 };
 export default Header;

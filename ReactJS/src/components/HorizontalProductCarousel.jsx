@@ -7,12 +7,14 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import axiosClient from './util/axios.customize.js';
 import ProductCard from './ProductCard';
+import { useCart } from './useCart';
 import { useNavigate } from 'react-router-dom';
 import './HorizontalProductCarousel.css';
 
 const HorizontalProductCarousel = ({ title, endpoint, pageSize = 10 }) => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
+  const { addToCart } = useCart();
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0 });
   const [loading, setLoading] = useState(false);
 
@@ -88,10 +90,10 @@ const HorizontalProductCarousel = ({ title, endpoint, pageSize = 10 }) => {
             992: { slidesPerView: 4 }
           }}
         >
-          {items.map((product) => (
+              {items.map((product) => (
             <SwiperSlide key={product.id}>
               <div onClick={() => navigate(`/product/${product.id}`)}>
-                <ProductCard product={product} />
+                <ProductCard product={product} onAddToCart={addToCart} />
               </div>
             </SwiperSlide>
           ))}

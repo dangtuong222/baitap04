@@ -1,0 +1,31 @@
+.checkout-page {
+  padding: 24px;
+}
+
+.checkout-content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.checkout-form {
+  min-height: 100%;
+}
+
+.checkout-summary .summary-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.checkout-summary .summary-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+@media (max-width: 991px) {
+  .checkout-content {
+    grid-template-columns: 1fr;
+  }
+}

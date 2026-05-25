@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import viewEngine from "./config/viewEngine.js";
 import initWebRoutes from "./route/web.js";
 import connectDB from "./config/configdb.js";
+import orderController from './controllers/orderController.js';
 
 // config dotenv
 dotenv.config();
@@ -50,4 +51,17 @@ app.listen(port, () => {
     console.log(
         `Backend Nodejs is running on port: ${port}`
     );
+        // Scheduler: run autoConfirmOrders every minute to confirm old NEW orders
+        try {
+            setInterval(async () => {
+                try {
+                    await orderController.autoConfirmOrders();
+                } catch (err) {
+                    console.error('[Scheduler] autoConfirmOrders error:', err.message || err);
+                }
+            }, 60 * 1000);
+            console.log('[Scheduler] autoConfirmOrders scheduled every 1 minute');
+        } catch (err) {
+            console.error('[Scheduler] failed to start:', err.message || err);
+        }
 });

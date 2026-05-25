@@ -1,5 +1,6 @@
-import React, { createContext, useReducer, useCallback } from 'react';
+import React, { createContext, useReducer, useCallback, useEffect, useContext } from 'react';
 import axiosClient from '../util/axios.customize.js';
+import { AuthContext } from './auth.context.jsx';
 
 export const ProductContext = createContext();
 
@@ -25,6 +26,9 @@ const initialState = {
   loading: false,
   error: null,
   cart: [],
+  cartMeta: null,
+  cartLoading: false,
+  cartError: null,
   apiCache: {}
 };
 
@@ -42,6 +46,10 @@ const actionTypes = {
   REMOVE_FROM_CART: 'REMOVE_FROM_CART',
   UPDATE_CART_QUANTITY: 'UPDATE_CART_QUANTITY',
   CLEAR_CART: 'CLEAR_CART',
+  SET_CART: 'SET_CART',
+  SET_CART_META: 'SET_CART_META',
+  SET_CART_LOADING: 'SET_CART_LOADING',
+  SET_CART_ERROR: 'SET_CART_ERROR',
   SET_CACHE: 'SET_CACHE'
 };
 
@@ -110,6 +118,18 @@ function productReducer(state, action) {
     
     case actionTypes.CLEAR_CART:
       return { ...state, cart: [] };
+
+    case actionTypes.SET_CART:
+      return { ...state, cart: action.payload };
+
+    case actionTypes.SET_CART_META:
+      return { ...state, cartMeta: action.payload };
+
+    case actionTypes.SET_CART_LOADING:
+      return { ...state, cartLoading: action.payload };
+
+    case actionTypes.SET_CART_ERROR:
+      return { ...state, cartError: action.payload };
     
     case actionTypes.SET_CACHE:
       return {
@@ -124,6 +144,20 @@ function productReducer(state, action) {
 
 export function ProductProvider({ children }) {
   const [state, dispatch] = useReducer(productReducer, initialState);
+  const { auth } = useContext(AuthContext);
+
+  const applyCartResponse = useCallback((res) => {
+    if (res?.success) {
+      dispatch({ type: actionTypes.SET_CART, payload: res.data?.items || [] });
+      dispatch({
+        type: actionTypes.SET_CART_META,
+        payload: {
+          id: res.data?.id || null,
+          totals: res.data?.totals || null
+        }
+      });
+    }
+  }, []);
 
   // ✅ NEW: Fetch dynamic price range from API
   const fetchPriceRange = useCallback(async () => {
@@ -229,29 +263,104 @@ export function ProductProvider({ children }) {
   }, []);
 
   const addToCart = useCallback((product, quantity = 1) => {
-    dispatch({
-      type: actionTypes.ADD_TO_CART,
-      payload: { ...product, quantity }
+    return new Promise(async (resolve) => {
+      if (!auth?.isAuthenticated) {
+        resolve({ success: false, message: 'Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng' });
+        return;
+      }
+      try {
+        console.log('[ProductContext] Adding to cart:', { productId: product.id, quantity });
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: true });
+        const res = await axiosClient.post('/api/cart/items', {
+          productId: product.id,
+          quantity
+        });
+        console.log('[ProductContext] Add to cart success:', res);
+        applyCartResponse(res);
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: res?.success ? null : res?.message });
+        resolve(res);
+      } catch (error) {
+        console.error('[ProductContext] Add to cart error:', error);
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: error.message });
+        resolve({ success: false, message: error.message });
+      } finally {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: false });
+      }
     });
-  }, []);
+  }, [applyCartResponse, auth?.isAuthenticated]);
 
   const removeFromCart = useCallback((productId) => {
-    dispatch({
-      type: actionTypes.REMOVE_FROM_CART,
-      payload: productId
+    return new Promise(async (resolve) => {
+      try {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: true });
+        const res = await axiosClient.delete(`/api/cart/items/${productId}`);
+        applyCartResponse(res);
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: res?.success ? null : res?.message });
+        resolve(res);
+      } catch (error) {
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: error.message });
+        resolve({ success: false, message: error.message });
+      } finally {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: false });
+      }
     });
-  }, []);
+  }, [applyCartResponse]);
 
   const updateCartQuantity = useCallback((productId, quantity) => {
-    dispatch({
-      type: actionTypes.UPDATE_CART_QUANTITY,
-      payload: { id: productId, quantity }
+    return new Promise(async (resolve) => {
+      try {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: true });
+        const res = await axiosClient.put(`/api/cart/items/${productId}`, { quantity });
+        applyCartResponse(res);
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: res?.success ? null : res?.message });
+        resolve(res);
+      } catch (error) {
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: error.message });
+        resolve({ success: false, message: error.message });
+      } finally {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: false });
+      }
     });
-  }, []);
+  }, [applyCartResponse]);
 
   const clearCart = useCallback(() => {
-    dispatch({ type: actionTypes.CLEAR_CART });
-  }, []);
+    return new Promise(async (resolve) => {
+      try {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: true });
+        const res = await axiosClient.delete('/api/cart');
+        applyCartResponse(res);
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: res?.success ? null : res?.message });
+        resolve(res);
+      } catch (error) {
+        dispatch({ type: actionTypes.SET_CART_ERROR, payload: error.message });
+        resolve({ success: false, message: error.message });
+      } finally {
+        dispatch({ type: actionTypes.SET_CART_LOADING, payload: false });
+      }
+    });
+  }, [applyCartResponse]);
+
+  const fetchCart = useCallback(async () => {
+    if (!auth.isAuthenticated) {
+      dispatch({ type: actionTypes.SET_CART, payload: [] });
+      dispatch({ type: actionTypes.SET_CART_META, payload: null });
+      return;
+    }
+    try {
+      dispatch({ type: actionTypes.SET_CART_LOADING, payload: true });
+      const res = await axiosClient.get('/api/cart');
+      applyCartResponse(res);
+      dispatch({ type: actionTypes.SET_CART_ERROR, payload: res?.success ? null : res?.message });
+    } catch (error) {
+      dispatch({ type: actionTypes.SET_CART_ERROR, payload: error.message });
+    } finally {
+      dispatch({ type: actionTypes.SET_CART_LOADING, payload: false });
+    }
+  }, [applyCartResponse, auth.isAuthenticated]);
+
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart, auth.isAuthenticated]);
 
   const value = {
     state,
@@ -261,6 +370,7 @@ export function ProductProvider({ children }) {
     fetchCategories,
     fetchPromotions,
     setFilters,
+    fetchCart,
     addToCart,
     removeFromCart,
     updateCartQuantity,

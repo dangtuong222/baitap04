@@ -2,9 +2,11 @@ import React from 'react';
 import { Card, Row, Col, Tag, Button, Spin, Empty } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import ProductCard from './ProductCard';
+import { useCart } from './useCart';
 import './SimilarProducts.css';
 
 const SimilarProducts = ({ products = [], loading = false, onViewProduct }) => {
+  const { addToCart } = useCart();
   if (loading) {
     return (
       <Card title="Sản phẩm tương tự" className="similar-products-card">
@@ -25,9 +27,9 @@ const SimilarProducts = ({ products = [], loading = false, onViewProduct }) => {
     <Card title="Sản phẩm tương tự" className="similar-products-card">
       <Row gutter={[16, 16]}>
         {products.map((product) => (
-          <Col key={product.id} xs={24} sm={12} md={8} lg={6}>
+            <Col key={product.id} xs={24} sm={12} md={8} lg={6}>
             <div onClick={() => onViewProduct?.(product.id)}>
-              <ProductCard product={product} />
+              <ProductCard product={product} onAddToCart={addToCart} />
             </div>
           </Col>
         ))}

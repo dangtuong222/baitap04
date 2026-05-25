@@ -18,6 +18,7 @@ const LoginPage = () => {
             const userData = {
                 email,
                 name: res?.name || '',
+                role: res?.role || 'user',
             };
             localStorage.setItem("access_token", res.token);
             localStorage.setItem("user_info", JSON.stringify(userData));

@@ -6,6 +6,11 @@ const {
 module.exports = (sequelize, DataTypes) => {
   class OrderItem extends Model {
     static associate(models) {
+      OrderItem.belongsTo(models.Order, {
+        foreignKey: 'orderId',
+        as: 'order'
+      });
+
       OrderItem.belongsTo(models.Product, {
         foreignKey: 'productId',
         as: 'product'
@@ -14,6 +19,11 @@ module.exports = (sequelize, DataTypes) => {
   }
 
   OrderItem.init({
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
     productId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -36,8 +46,12 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 0
     },
     orderId: {
-      type: DataTypes.STRING,
-      allowNull: false
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Orders',
+        key: 'id'
+      }
     }
   }, {
     sequelize,

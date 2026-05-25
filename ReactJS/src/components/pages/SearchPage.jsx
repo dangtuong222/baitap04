@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Row, Col, Card, Spin, Empty, Button, Space, Select, Pagination } from 'antd';
+import { Row, Col, Card, Spin, Empty, Button, Space, Select, Pagination, Input } from 'antd';
 import { UnorderedListOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useProducts } from '../useProducts';
 import { useFilters } from '../useFilters';
 import ProductCard from '../ProductCard';
+import { useCart } from '../useCart';
 import SearchFilters from '../SearchFilters';
 import './SearchPage.css';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const SearchPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { products, loading, pagination, fetchProducts } = useProducts();
+  const { addToCart } = useCart();
   const { filters, setFilters, categories, fetchCategories, fetchPriceRange, priceRange } = useFilters();
   
   const [viewMode, setViewMode] = useState('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef(null);
+  const [searchInput, setSearchInput] = useState('');
 
   useEffect(() => {
     fetchCategories();
@@ -38,6 +42,7 @@ const SearchPage = () => {
       page: 1,
       limit: 12
     });
+    setSearchInput(query);
   }, [location.search, priceRange, setFilters]);
 
   const isInfinite = useMemo(() => Boolean(filters.category), [filters.category]);
@@ -114,10 +119,25 @@ const SearchPage = () => {
     });
   };
 
+  const handleSearch = () => {
+    if (searchInput && searchInput.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
+    }
+  };
+
   return (
     <div className="search-page">
       <div className="search-header">
         <h1>Tìm kiếm sản phẩm</h1>
+        <Space.Compact style={{ width: '100%', maxWidth: 600 }}>
+          <Input
+            placeholder="Tìm kiếm sản phẩm..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onPressEnter={handleSearch}
+          />
+          <Button type="primary" onClick={handleSearch}>Tìm kiếm</Button>
+        </Space.Compact>
         {filters.query && <p>Kết quả tìm kiếm cho: <strong>"{filters.query}"</strong></p>}
       </div>
 
@@ -195,8 +215,9 @@ const SearchPage = () => {
                       sm={viewMode === 'grid' ? 12 : 24}
                       md={viewMode === 'grid' ? 12 : 24}
                       lg={viewMode === 'grid' ? 8 : 24}
+                      onClick={() => navigate(`/product/${product.id}`)}
                     >
-                      <ProductCard product={product} />
+                      <ProductCard product={product} onAddToCart={addToCart} />
                     </Col>
                   ))}
                 </Row>

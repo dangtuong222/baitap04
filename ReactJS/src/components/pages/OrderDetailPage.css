@@ -1,0 +1,38 @@
+.order-detail-page {
+  padding: 24px;
+}
+
+.order-status-card {
+  margin-bottom: 24px;
+}
+
+.order-status-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.order-info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.order-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}

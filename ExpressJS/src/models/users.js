@@ -10,7 +10,15 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // định nghĩa mối quan hệ
+      User.hasMany(models.Cart, {
+        foreignKey: 'userId',
+        as: 'carts'
+      });
+
+      User.hasMany(models.Order, {
+        foreignKey: 'userId',
+        as: 'orders'
+      });
     }
   }
   User.init({

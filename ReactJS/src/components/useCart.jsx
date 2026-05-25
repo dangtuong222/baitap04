@@ -9,11 +9,18 @@ export function useCart() {
 
   return {
     cart: context.state.cart,
+    cartMeta: context.state.cartMeta,
+    cartLoading: context.state.cartLoading,
+    cartError: context.state.cartError,
+    refreshCart: context.fetchCart,
     addToCart: context.addToCart,
     removeFromCart: context.removeFromCart,
     updateCartQuantity: context.updateCartQuantity,
     clearCart: context.clearCart,
-    cartTotal: context.state.cart.reduce((total, item) => total + (item.price * item.quantity), 0),
+    cartTotal: context.state.cart.reduce((total, item) => {
+      const unitPrice = item.unitPrice ?? item.price ?? item.product?.price ?? 0;
+      return total + (parseFloat(unitPrice) * item.quantity);
+    }, 0),
     cartItemCount: context.state.cart.reduce((count, item) => count + item.quantity, 0)
   };
 }

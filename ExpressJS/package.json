@@ -10,7 +10,10 @@
     "migrate": "sequelize db:migrate",
     "migrate:undo": "sequelize db:migrate:undo:all",
     "seed": "babel-node seed-products.js",
-    "reseed": "babel-node reseed-products.js"
+    "reseed": "babel-node reseed-products.js",
+    "create-test-user": "babel-node create-test-user.js",
+    "create-admin-user": "babel-node create-admin-user.js",
+    "e2e": "node e2e-test.js"
   },
   "author": "Nhom 13",
   "license": "ISC",

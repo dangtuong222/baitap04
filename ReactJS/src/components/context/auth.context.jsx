@@ -4,7 +4,8 @@ const initialAuthState = {
     isAuthenticated: false,
     user: {
         email: "",
-        name: ""
+        name: "",
+        role: "user"
     },
     token: null
 };
@@ -49,7 +50,10 @@ export const AuthWrapper = (props) => {
             
             if (token && storedUser) {
                 try {
-                    const user = JSON.parse(storedUser);
+                    const user = {
+                        role: 'user',
+                        ...JSON.parse(storedUser),
+                    };
                     dispatch({
                         type: 'RESTORE_AUTH',
                         payload: {
