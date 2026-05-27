@@ -20,6 +20,7 @@ const OrdersPage = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -41,20 +42,38 @@ const OrdersPage = () => {
     fetchOrders();
   }, []);
 
-  const handleCancel = async (orderId) => {
-    const res = await axiosClient.post(`/api/orders/${orderId}/cancel`);
-    if (res?.success) {
-      message.success('Yêu cầu hủy đơn đã được cập nhật');
-      fetchOrders();
-    } else {
-      message.error(res?.message || 'Không thể hủy đơn hàng');
-    }
+  const getOrderAgeMinutes = (order) => {
+    const createdAt = new Date(order.createdAt);
+    return (Date.now() - createdAt.getTime()) / (60 * 1000);
   };
 
-  const isCancelable = (order) => {
-    const createdAt = new Date(order.createdAt);
-    const diffMinutes = (Date.now() - createdAt.getTime()) / (60 * 1000);
-    return ['NEW', 'CONFIRMED'].includes(order.status) && diffMinutes <= 30;
+  const isWithinCancelWindow = (order) => getOrderAgeMinutes(order) <= 30;
+
+  const canCancelDirectly = (order) => ['NEW', 'CONFIRMED'].includes(order.status);
+
+  const canRequestCancel = (order) => (
+    order.status === 'PREPARING' && isWithinCancelWindow(order)
+  );
+
+  const handleCancel = async (order) => {
+    setCancellingOrderId(order.id);
+    try {
+      const res = await axiosClient.post(`/api/orders/${order.id}/cancel`, {});
+      if (res?.success) {
+        const successMessage = order.status === 'PREPARING'
+          ? 'Đã gửi yêu cầu hủy đến shop'
+          : 'Đã hủy đơn hàng';
+        message.success(successMessage);
+        fetchOrders();
+      } else {
+        message.error(res?.message || 'Không thể hủy đơn hàng');
+      }
+    } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Không thể hủy đơn hàng';
+      message.error(errorMessage);
+    } finally {
+      setCancellingOrderId(null);
+    }
   };
 
   const columns = [
@@ -91,11 +110,15 @@ const OrdersPage = () => {
       render: (_, record) => (
         <Space>
           <Button onClick={() => navigate(`/orders/${record.id}`)}>Xem chi tiết</Button>
-          {isCancelable(record) && (
-            <Button danger onClick={() => handleCancel(record.id)}>Hủy đơn</Button>
+          {canCancelDirectly(record) && (
+            <Button danger loading={cancellingOrderId === record.id} onClick={() => handleCancel(record)}>
+              Hủy đơn
+            </Button>
           )}
-          {record.status === 'PREPARING' && (
-            <Button danger onClick={() => handleCancel(record.id)}>Yêu cầu hủy</Button>
+          {canRequestCancel(record) && (
+            <Button danger loading={cancellingOrderId === record.id} onClick={() => handleCancel(record)}>
+              Yêu cầu hủy
+            </Button>
           )}
         </Space>
       )

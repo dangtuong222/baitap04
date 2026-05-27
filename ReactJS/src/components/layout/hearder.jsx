@@ -1,9 +1,10 @@
 import React, { useContext, useMemo } from 'react';
 import { HomeOutlined, SettingOutlined, ShoppingCartOutlined, ProfileOutlined } from '@ant-design/icons';
-import { Badge, Menu } from 'antd';
+import { Badge, Menu, message } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/auth.context';
 import { useCart } from '../useCart';
+import { logoutApi } from '../util/api';
 
 const Header = () => {
 
@@ -11,6 +12,7 @@ const Header = () => {
     const { auth, dispatch } = useContext(AuthContext);
     const { cartItemCount } = useCart();
     const location = useLocation();
+    const isAdmin = auth?.user?.role === 'admin';
 
     const current = useMemo(() => {
         if (location.pathname.startsWith('/admin')) return 'admin-dashboard';
@@ -21,18 +23,31 @@ const Header = () => {
         return 'home';
     }, [location.pathname]);
 
+    const handleLogout = async () => {
+        try {
+            await logoutApi();
+        } catch (error) {
+            message.error(error?.response?.data?.message || error?.message || 'Không thể đăng xuất');
+        } finally {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("user_info");
+            dispatch({ type: 'LOGOUT' });
+            navigate("/login");
+        }
+    };
+
     const items = [
         {
             label: <Link to="/home">Trang chủ</Link>,
             key: 'home',
             icon: <HomeOutlined />,
         },
-        ...(auth?.user?.role === 'admin' ? [{
+        ...(isAdmin ? [{
             label: <Link to="/admin/dashboard">Quản lý đơn</Link>,
             key: 'admin-dashboard',
             icon: <ProfileOutlined />,
         }] : []),
-        ...(auth.isAuthenticated ? [{
+        ...(!isAdmin && auth.isAuthenticated ? [{
             label: (
                 <Link to="/cart">
                     <Badge count={cartItemCount} size="small">
@@ -43,7 +58,7 @@ const Header = () => {
             key: 'cart',
             icon: <ShoppingCartOutlined />,
         }] : []),
-        ...(auth.isAuthenticated ? [{
+        ...(!isAdmin && auth.isAuthenticated ? [{
             label: <Link to="/orders">Đơn hàng</Link>,
             key: 'orders',
             icon: <ProfileOutlined />,
@@ -56,11 +71,7 @@ const Header = () => {
             children: [
                 ...(auth.isAuthenticated ? [{
                     label: <span onClick={() => {
-                        localStorage.removeItem("access_token");
-                        localStorage.removeItem("user_info");
-                        setCurrent("home");
-                        dispatch({ type: 'LOGOUT' });
-                        navigate("/login");
+                        handleLogout();
                     }}>Đăng xuất</span>,
                     key: 'logout',
                 }] : [

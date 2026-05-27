@@ -360,7 +360,7 @@ const cancelOrder = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason } = req.body || {};
 
     await autoConfirmOrders(userId);
     const order = await loadOrder(id, userId);
@@ -372,9 +372,52 @@ const cancelOrder = async (req, res) => {
       });
     }
 
+    if (order.status === ORDER_STATUSES.CANCEL_REQUESTED) {
+      return res.status(200).json({
+        success: true,
+        data: buildOrderPayload(order)
+      });
+    }
+
     const orderAgeMinutes = (Date.now() - new Date(order.createdAt).getTime()) / (60 * 1000);
 
+    if (['NEW', 'CONFIRMED'].includes(order.status)) {
+      await sequelize.transaction(async (transaction) => {
+        await order.update({
+          status: ORDER_STATUSES.CANCELED,
+          cancelReason: reason || order.cancelReason,
+          ...applyStatusTimestamp(ORDER_STATUSES.CANCELED)
+        }, { transaction });
+
+        for (const item of order.items || []) {
+          if (!item.product) {
+            continue;
+          }
+          await Product.update({
+            stock: item.product.stock + item.quantity,
+            sold: Math.max((item.product.sold || 0) - item.quantity, 0)
+          }, {
+            where: { id: item.productId },
+            transaction
+          });
+        }
+      });
+
+      const updatedOrder = await loadOrder(order.id, userId);
+      return res.status(200).json({
+        success: true,
+        data: buildOrderPayload(updatedOrder)
+      });
+    }
+
     if (order.status === ORDER_STATUSES.PREPARING) {
+      if (orderAgeMinutes > CANCEL_WINDOW_MINUTES) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bạn chỉ có thể gửi yêu cầu hủy đơn trong 30 phút đầu sau khi đặt hàng'
+        });
+      }
+
       await order.update({
         status: ORDER_STATUSES.CANCEL_REQUESTED,
         cancelReason: reason || order.cancelReason,
@@ -388,7 +431,14 @@ const cancelOrder = async (req, res) => {
       });
     }
 
-    if (![ORDER_STATUSES.NEW, ORDER_STATUSES.CONFIRMED].includes(order.status)) {
+    if (['SHIPPING', 'DELIVERED', 'CANCELED'].includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Đơn hàng đã sang giai đoạn giao hoặc hoàn tất nên không thể hủy'
+      });
+    }
+
+    if (order.status !== ORDER_STATUSES.PREPARING) {
       return res.status(400).json({
         success: false,
         message: 'Đơn hàng không thể hủy ở trạng thái hiện tại'
@@ -398,29 +448,14 @@ const cancelOrder = async (req, res) => {
     if (orderAgeMinutes > CANCEL_WINDOW_MINUTES) {
       return res.status(400).json({
         success: false,
-        message: 'Bạn chỉ có thể hủy đơn trong 30 phút đầu sau khi đặt hàng'
+        message: 'Bạn chỉ có thể gửi yêu cầu hủy đơn trong 30 phút đầu sau khi đặt hàng'
       });
     }
 
-    await sequelize.transaction(async (transaction) => {
-      await order.update({
-        status: ORDER_STATUSES.CANCELED,
-        cancelReason: reason || order.cancelReason,
-        ...applyStatusTimestamp(ORDER_STATUSES.CANCELED)
-      }, { transaction });
-
-      for (const item of order.items || []) {
-        if (!item.product) {
-          continue;
-        }
-        await Product.update({
-          stock: item.product.stock + item.quantity,
-          sold: Math.max((item.product.sold || 0) - item.quantity, 0)
-        }, {
-          where: { id: item.productId },
-          transaction
-        });
-      }
+    await order.update({
+      status: ORDER_STATUSES.CANCEL_REQUESTED,
+      cancelReason: reason || order.cancelReason,
+      ...applyStatusTimestamp(ORDER_STATUSES.CANCEL_REQUESTED)
     });
 
     const updatedOrder = await loadOrder(order.id, userId);

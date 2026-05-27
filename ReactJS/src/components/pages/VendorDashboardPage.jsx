@@ -40,7 +40,7 @@ const statusFlow = ['NEW', 'CONFIRMED', 'PREPARING', 'SHIPPING', 'DELIVERED'];
 const transitions = {
   NEW: ['CONFIRMED', 'CANCELED'],
   CONFIRMED: ['PREPARING', 'CANCELED'],
-  PREPARING: ['SHIPPING', 'CANCEL_REQUESTED'],
+  PREPARING: ['SHIPPING'],
   SHIPPING: ['DELIVERED'],
   CANCEL_REQUESTED: ['CANCELED', 'PREPARING']
 };
@@ -50,8 +50,7 @@ const actionMeta = {
   PREPARING: { label: 'Chuẩn bị hàng', icon: <GiftOutlined /> },
   SHIPPING: { label: 'Bắt đầu giao', icon: <CarOutlined /> },
   DELIVERED: { label: 'Đã giao', icon: <CompassOutlined /> },
-  CANCELED: { label: 'Hủy đơn', icon: <StopOutlined /> },
-  CANCEL_REQUESTED: { label: 'Chấp nhận yêu cầu hủy', icon: <StopOutlined /> }
+  CANCELED: { label: 'Hủy đơn', icon: <StopOutlined /> }
 };
 
 const getCustomerLabel = (order) => {
@@ -105,6 +104,16 @@ const VendorDashboardPage = () => {
   }, [orders]);
 
   const allowedTransitions = (status) => transitions[status] || [];
+
+  const getActionMeta = (currentStatus, nextStatus) => {
+    if (currentStatus === 'CANCEL_REQUESTED' && nextStatus === 'CANCELED') {
+      return { label: 'Chấp nhận yêu cầu hủy', icon: <StopOutlined /> };
+    }
+    if (currentStatus === 'CANCEL_REQUESTED' && nextStatus === 'PREPARING') {
+      return { label: 'Từ chối yêu cầu hủy', icon: <GiftOutlined /> };
+    }
+    return actionMeta[nextStatus] || { label: nextStatus, icon: <CheckOutlined /> };
+  };
 
   const openDrawer = (order) => {
     const available = allowedTransitions(order.status);
@@ -200,7 +209,7 @@ const VendorDashboardPage = () => {
           <Space wrap>
             <Button icon={<EyeOutlined />} onClick={() => openDrawer(record)}>Chi tiết</Button>
             {nextStatuses.map((status) => {
-              const meta = actionMeta[status] || { label: status, icon: <CheckOutlined /> };
+              const meta = getActionMeta(record.status, status);
               return (
                 <Button
                   key={status}

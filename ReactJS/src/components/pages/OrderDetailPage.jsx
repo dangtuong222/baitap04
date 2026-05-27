@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Steps, Typography, List, Tag, Button, message } from 'antd';
+import { Card, Steps, Typography, List, Tag, Button, Space, message } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosClient from '../util/axios.customize.js';
 import './OrderDetailPage.css';
@@ -23,6 +23,7 @@ const OrderDetailPage = () => {
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchOrder = async () => {
     setLoading(true);
@@ -48,6 +49,39 @@ const OrderDetailPage = () => {
   const statusInfo = order ? statusMap[order.status] : null;
 
   const formatTS = (ts) => ts ? new Date(ts).toLocaleString() : null;
+
+  const getOrderAgeMinutes = (value) => {
+    const createdAt = new Date(value.createdAt);
+    return (Date.now() - createdAt.getTime()) / (60 * 1000);
+  };
+
+  const isWithinCancelWindow = (value) => getOrderAgeMinutes(value) <= 30;
+
+  const canCancelDirectly = (value) => ['NEW', 'CONFIRMED'].includes(value.status);
+
+  const canRequestCancel = (value) => value.status === 'PREPARING' && isWithinCancelWindow(value);
+
+  const handleCancel = async () => {
+    if (!order) {
+      return;
+    }
+
+    setCancelling(true);
+    try {
+      const res = await axiosClient.post(`/api/orders/${order.id}/cancel`, {});
+      if (res?.success) {
+        message.success(order.status === 'PREPARING' ? 'Đã gửi yêu cầu hủy đến shop' : 'Đã hủy đơn hàng');
+        await fetchOrder();
+      } else {
+        message.error(res?.message || 'Không thể hủy đơn hàng');
+      }
+    } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Không thể hủy đơn hàng';
+      message.error(errorMessage);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const stepItems = order ? [
     { title: 'Đơn hàng mới', description: formatTS(order.createdAt) },
@@ -150,6 +184,20 @@ const OrderDetailPage = () => {
             </div>
           </Card>
         </div>
+      )}
+
+      {order && (canCancelDirectly(order) || canRequestCancel(order)) && (
+        <Card style={{ marginTop: 16 }}>
+          <Title level={4}>Thao tác đơn hàng</Title>
+          <Space>
+            {canCancelDirectly(order) && (
+              <Button danger loading={cancelling} onClick={handleCancel}>Hủy đơn</Button>
+            )}
+            {canRequestCancel(order) && (
+              <Button danger loading={cancelling} onClick={handleCancel}>Gửi yêu cầu hủy đơn</Button>
+            )}
+          </Space>
+        </Card>
       )}
     </div>
   );

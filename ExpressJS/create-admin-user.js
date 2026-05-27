@@ -6,8 +6,12 @@ const createAdminUser = async () => {
     await db.sequelize.authenticate();
     console.log('DB connected');
 
-    const email = process.env.ADMIN_USER_EMAIL || 'admin@example.com';
-    const password = process.env.ADMIN_USER_PASSWORD || 'Admin123!';
+    const email = process.env.ADMIN_USER_EMAIL;
+    const password = process.env.ADMIN_USER_PASSWORD;
+
+    if (!email || !password) {
+      throw new Error('ADMIN_USER_EMAIL and ADMIN_USER_PASSWORD must be set');
+    }
 
     const existing = await db.User.findOne({ where: { email } });
     if (existing) {
@@ -24,7 +28,7 @@ const createAdminUser = async () => {
       lastName: 'Admin'
     });
 
-    console.log('Created admin user:', { email, password, role: 'admin' });
+    console.log('Created admin user:', { email, role: 'admin' });
     process.exit(0);
   } catch (err) {
     console.error('Error creating admin user:', err);
