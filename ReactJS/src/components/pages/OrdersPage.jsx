@@ -110,6 +110,9 @@ const OrdersPage = () => {
       render: (_, record) => (
         <Space>
           <Button onClick={() => navigate(`/orders/${record.id}`)}>Xem chi tiết</Button>
+          {record.status === 'DELIVERED' && record.items && record.items.length > 0 && (
+            <Button onClick={() => navigate(`/product/${record.items[0].productId}?orderId=${record.id}`)}>Bình luận</Button>
+          )}
           {canCancelDirectly(record) && (
             <Button danger loading={cancellingOrderId === record.id} onClick={() => handleCancel(record)}>
               Hủy đơn

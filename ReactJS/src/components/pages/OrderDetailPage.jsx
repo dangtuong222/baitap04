@@ -175,11 +175,16 @@ const OrderDetailPage = () => {
                           <Text type="secondary">x{item.quantity}</Text>
                         </div>
                       </div>
-                      <Text>
-                        {formatCurrency(
-                          item.finalLineTotal ?? ((item.unitPrice - (item.unitDiscount || 0)) * item.quantity)
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Text>
+                          {formatCurrency(
+                            item.finalLineTotal ?? ((item.unitPrice - (item.unitDiscount || 0)) * item.quantity)
+                          )}
+                        </Text>
+                        {order.status === 'DELIVERED' && (
+                          <Button onClick={() => navigate(`/product/${item.productId}?orderId=${order.id}`)}>Bình luận</Button>
                         )}
-                      </Text>
+                      </div>
                     </div>
                   </List.Item>
                 )}
