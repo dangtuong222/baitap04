@@ -5,6 +5,11 @@ const Product = db.Product;
 const Category = db.Category;
 const ProductImage = db.ProductImage;
 const Promotion = db.Promotion;
+const Review = db.Review;
+const Order = db.Order;
+const OrderItem = db.OrderItem;
+const Favorite = db.Favorite;
+const ViewedProduct = db.ViewedProduct;
 
 // ✅ NEW: Get price range from database
 const getPriceRange = async (req, res) => {
@@ -192,6 +197,63 @@ const getProductDetail = async (req, res) => {
 
     await Product.increment('viewCount', { by: 1, where: { id } });
     product.viewCount = (product.viewCount || 0) + 1;
+
+    if (req.user?.id) {
+      const existingView = await ViewedProduct.findOne({
+        where: { userId: req.user.id, productId: id }
+      });
+      if (existingView) {
+        await existingView.update({
+          viewCount: (existingView.viewCount || 0) + 1,
+          lastViewedAt: new Date()
+        });
+      } else {
+        await ViewedProduct.create({
+          userId: req.user.id,
+          productId: id,
+          viewCount: 1,
+          lastViewedAt: new Date()
+        });
+      }
+    }
+
+    const reviewStats = await Review.findAll({
+      where: { productId: id },
+      attributes: [
+        [db.sequelize.fn('AVG', db.sequelize.col('rating')), 'avgRating'],
+        [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'reviewCount']
+      ],
+      raw: true
+    });
+
+    const avgRating = parseFloat(reviewStats[0]?.avgRating || 0);
+    const reviewCount = parseInt(reviewStats[0]?.reviewCount || 0, 10);
+
+    const buyerCount = await Order.count({
+      distinct: true,
+      col: 'userId',
+      where: { status: 'DELIVERED' },
+      include: [
+        {
+          model: OrderItem,
+          as: 'items',
+          where: { productId: id }
+        }
+      ]
+    });
+
+    let isFavorite = false;
+    if (req.user?.id) {
+      const favorite = await Favorite.findOne({
+        where: { userId: req.user.id, productId: id }
+      });
+      isFavorite = !!favorite;
+    }
+
+    product.setDataValue('reviewCount', reviewCount);
+    product.setDataValue('buyerCount', buyerCount);
+    product.setDataValue('isFavorite', isFavorite);
+    product.setDataValue('rating', avgRating);
 
     res.status(200).json({
       success: true,

@@ -1,5 +1,5 @@
 import React, { useContext, useMemo } from 'react';
-import { HomeOutlined, SettingOutlined, ShoppingCartOutlined, ProfileOutlined } from '@ant-design/icons';
+import { HomeOutlined, SettingOutlined, ShoppingCartOutlined, ProfileOutlined, HeartOutlined } from '@ant-design/icons';
 import { Badge, Menu, message } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/auth.context';
@@ -14,14 +14,15 @@ const Header = () => {
     const location = useLocation();
     const isAdmin = auth?.user?.role === 'admin';
 
-    const current = useMemo(() => {
-        if (location.pathname.startsWith('/admin')) return 'admin-dashboard';
-        if (location.pathname.startsWith('/cart')) return 'cart';
-        if (location.pathname.startsWith('/orders')) return 'orders';
-        if (location.pathname.startsWith('/search')) return 'search';
-        if (location.pathname.startsWith('/product')) return 'product';
-        return 'home';
-    }, [location.pathname]);
+        const current = useMemo(() => {
+            if (location.pathname.startsWith('/admin')) return 'admin-dashboard';
+            if (location.pathname.startsWith('/cart')) return 'cart';
+            if (location.pathname.startsWith('/favorites')) return 'favorites';
+            if (location.pathname.startsWith('/orders')) return 'orders';
+            if (location.pathname.startsWith('/search')) return 'search';
+            if (location.pathname.startsWith('/product')) return 'product';
+            return 'home';
+        }, [location.pathname]);
 
     const handleLogout = async () => {
         try {
@@ -59,6 +60,11 @@ const Header = () => {
             icon: <ShoppingCartOutlined />,
         }] : []),
         ...(!isAdmin && auth.isAuthenticated ? [{
+            label: <Link to="/favorites">Yêu thích</Link>,
+            key: 'favorites',
+            icon: <HeartOutlined />,
+        }] : []),
+        ...(!isAdmin && auth.isAuthenticated ? [{
             label: <Link to="/orders">Đơn hàng</Link>,
             key: 'orders',
             icon: <ProfileOutlined />,
@@ -69,12 +75,19 @@ const Header = () => {
             key: 'SubMenu',
             icon: <SettingOutlined />,
             children: [
-                ...(auth.isAuthenticated ? [{
-                    label: <span onClick={() => {
-                        handleLogout();
-                    }}>Đăng xuất</span>,
-                    key: 'logout',
-                }] : [
+                ...(auth.isAuthenticated ? [
+                    {
+                        label: <Link to="/profile">Chỉnh sửa hồ sơ</Link>,
+                        key: 'profile',
+                        icon: <ProfileOutlined />,
+                    },
+                    {
+                        label: <span onClick={() => {
+                            handleLogout();
+                        }}>Đăng xuất</span>,
+                        key: 'logout',
+                    }
+                ] : [
                     {
                         label: <Link to="/login">Đăng nhập</Link>,
                         key: 'login',

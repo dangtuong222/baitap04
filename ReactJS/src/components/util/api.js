@@ -26,6 +26,13 @@ const getUserApi = () => {
     return axios.get(URL_API);
 };
 
+const getProfileApi = () => getUserApi();
+
+const updateProfileApi = (data) => {
+    const URL_API = "/api/auth/profile";
+    return axios.put(URL_API, data);
+};
+
 const logoutApi = () => {
     const URL_API = "/api/auth/logout";
     return axios.post(URL_API);
@@ -63,6 +70,37 @@ const resendRegisterOtpApi = (email) => {
     return axios.post(URL_API, data);
 };
 
+const forgotPasswordApi = (email) => {
+    const URL_API = "/api/auth/forgot-password";
+    const data = {
+        email
+    };
+
+    return axios.post(URL_API, data);
+};
+
+const resetPasswordApi = (email, otp, tempToken, newPassword, confirmPassword) => {
+    const URL_API = "/api/auth/reset-password";
+    const data = {
+        email,
+        otp,
+        tempToken,
+        newPassword,
+        confirmPassword
+    };
+
+    return axios.post(URL_API, data);
+};
+
+const resendForgotPasswordOtpApi = (email) => {
+    const URL_API = "/api/auth/resend-otp";
+    const data = {
+        email
+    };
+
+    return axios.post(URL_API, data);
+};
+
 export {
     createUserApi,
     loginApi,
@@ -71,4 +109,9 @@ export {
     registerApi,
     verifyRegisterOtpApi,
     resendRegisterOtpApi,
+    forgotPasswordApi,
+    resetPasswordApi,
+    resendForgotPasswordOtpApi,
+    getProfileApi,
+    updateProfileApi,
 };

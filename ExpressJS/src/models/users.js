@@ -19,6 +19,26 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'userId',
         as: 'orders'
       });
+
+      User.hasMany(models.Review, {
+        foreignKey: 'userId',
+        as: 'reviews'
+      });
+
+      User.hasMany(models.Favorite, {
+        foreignKey: 'userId',
+        as: 'favorites'
+      });
+
+      User.hasMany(models.ViewedProduct, {
+        foreignKey: 'userId',
+        as: 'viewedProducts'
+      });
+
+      User.hasMany(models.UserCoupon, {
+        foreignKey: 'userId',
+        as: 'userCoupons'
+      });
     }
   }
   User.init({
@@ -32,7 +52,11 @@ module.exports = (sequelize, DataTypes) => {
     phoneNumber: DataTypes.STRING,
     gender: DataTypes.BOOLEAN,
     image: DataTypes.STRING,
-    positionId: DataTypes.STRING
+    positionId: DataTypes.STRING,
+    loyaltyPoints: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    }
   }, {
     sequelize,
     modelName: 'User',

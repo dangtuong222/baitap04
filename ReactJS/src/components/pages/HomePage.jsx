@@ -230,6 +230,12 @@ const HomePage = () => {
         endpoint="/api/products/most-viewed"
         pageSize={10}
       />
+
+      <HorizontalProductCarousel
+        title="🕘 Sản phẩm đã xem gần đây"
+        endpoint="/api/products/viewed"
+        pageSize={10}
+      />
     </div>
   );
 };

@@ -123,6 +123,22 @@
   margin-bottom: 12px;
 }
 
+.reviews-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-form-card .ant-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.review-item {
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   .product-detail-page {
     padding: 12px;

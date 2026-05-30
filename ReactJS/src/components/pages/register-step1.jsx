@@ -8,6 +8,18 @@ const RegisterStep1 = ({ onNext, email: initialEmail = '' }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = React.useState(false);
 
+    const getApiErrorMessage = (error, fallbackMessage) => {
+        const responseData = error?.response?.data;
+
+        if (responseData?.errors?.length) {
+            return responseData.errors
+                .map((item) => `${item.field}: ${item.message}`)
+                .join('\n');
+        }
+
+        return responseData?.message || error?.message || fallbackMessage;
+    };
+
     const onFinish = async (values) => {
         setLoading(true);
         try {
@@ -36,7 +48,7 @@ const RegisterStep1 = ({ onNext, email: initialEmail = '' }) => {
         } catch (error) {
             notification.error({
                 message: "Lỗi",
-                description: error?.message || 'Có lỗi xảy ra, vui lòng thử lại.',
+                description: getApiErrorMessage(error, 'Có lỗi xảy ra, vui lòng thử lại.'),
             });
         } finally {
             setLoading(false);

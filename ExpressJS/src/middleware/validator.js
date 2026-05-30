@@ -21,8 +21,8 @@ export const registerValidator = [
         .isLength({ min: 2 }).withMessage('Tên tối thiểu 2 ký tự'),
 
     body('phoneNumber')
-        .optional()
-        .isMobilePhone('vi-VN').withMessage('Số điện thoại không hợp lệ'),
+        .optional({ checkFalsy: true })
+        .matches(/^(?:\+84|0)\d{9,10}$/).withMessage('Số điện thoại không hợp lệ'),
 
     // Middleware kiểm tra kết quả validation
     (req, res, next) => {

@@ -55,6 +55,8 @@ const OrderDetailPage = () => {
     return (Date.now() - createdAt.getTime()) / (60 * 1000);
   };
 
+  const formatCurrency = (value) => `$${parseFloat(value || 0).toFixed(2)}`;
+
   const isWithinCancelWindow = (value) => getOrderAgeMinutes(value) <= 30;
 
   const canCancelDirectly = (value) => ['NEW', 'CONFIRMED'].includes(value.status);
@@ -162,29 +164,49 @@ const OrderDetailPage = () => {
 
           <Card>
             <Title level={4}>Sản phẩm đã đặt</Title>
-            <List
-              dataSource={order.items || []}
-              renderItem={(item) => (
-                <List.Item>
-                  <div className="order-item">
-                    <div>
-                      <Text strong>{item.product?.name}</Text>
+              <List
+                dataSource={order.items || []}
+                renderItem={(item) => (
+                  <List.Item>
+                    <div className="order-item">
                       <div>
-                        <Text type="secondary">x{item.quantity}</Text>
+                        <Text strong>{item.product?.name}</Text>
+                        <div>
+                          <Text type="secondary">x{item.quantity}</Text>
+                        </div>
                       </div>
+                      <Text>
+                        {formatCurrency(
+                          item.finalLineTotal ?? ((item.unitPrice - (item.unitDiscount || 0)) * item.quantity)
+                        )}
+                      </Text>
                     </div>
-                    <Text>${(item.unitPrice * item.quantity).toFixed(2)}</Text>
-                  </div>
-                </List.Item>
-              )}
-            />
-            <div className="order-total">
-              <Text>Tổng thanh toán</Text>
-              <Text strong>${parseFloat(order.total || 0).toFixed(2)}</Text>
-            </div>
-          </Card>
-        </div>
-      )}
+                  </List.Item>
+                )}
+              />
+              <div className="order-total">
+                <Text>Tạm tính</Text>
+                <Text strong>{formatCurrency(order.subtotal || order.total)}</Text>
+              </div>
+              <div className="order-total">
+                <Text>Giảm khuyến mãi</Text>
+                <Text strong>-{formatCurrency(order.promotionDiscount || 0)}</Text>
+              </div>
+              <div className="order-total">
+                <Text>Giảm coupon {order.couponCode ? `(${order.couponCode})` : ''}</Text>
+                <Text strong>-{formatCurrency(order.couponDiscount || 0)}</Text>
+              </div>
+              <div className="order-total">
+                <Text>Điểm đã dùng</Text>
+                <Text strong>-{formatCurrency(order.pointsRedeemed || 0)}</Text>
+              </div>
+              <div className="order-total order-total-highlight">
+                <Text>Tổng thanh toán</Text>
+                <Text strong>{formatCurrency(order.total || 0)}</Text>
+              </div>
+            </Card>
+          </div>
+        )}
 
       {order && (canCancelDirectly(order) || canRequestCancel(order)) && (
         <Card style={{ marginTop: 16 }}>

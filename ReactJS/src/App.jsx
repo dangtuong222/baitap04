@@ -2,12 +2,14 @@ import LoginPage from "./components/pages/login.jsx";
 import RegisterPage from "./components/pages/register.jsx";
 import HomePage from "./components/pages/HomePage.jsx";
 import ProductDetailPage from "./components/pages/ProductDetailPage.jsx";
+import EditProfile from "./components/pages/edit-profile.jsx";
 import SearchPage from "./components/pages/SearchPage.jsx";
 import CartPage from "./components/pages/CartPage.jsx";
 import CheckoutPage from "./components/pages/CheckoutPage.jsx";
 import OrdersPage from "./components/pages/OrdersPage.jsx";
 import OrderDetailPage from "./components/pages/OrderDetailPage.jsx";
 import VendorDashboardPage from "./components/pages/VendorDashboardPage.jsx";
+import FavoritesPage from "./components/pages/FavoritesPage.jsx";
 import PrivateRoute from "./components/PrivateRoute.jsx";
 import AuthGuard from "./components/AuthGuard.jsx";
 import { ProductProvider } from "./components/context/ProductContext.jsx";
@@ -68,6 +70,14 @@ function App() {
             </PrivateLayout>
           } 
         />
+        <Route
+          path="/profile"
+          element={
+            <PrivateLayout>
+              <EditProfile />
+            </PrivateLayout>
+          }
+        />
         <Route 
           path="/search" 
           element={
@@ -105,6 +115,14 @@ function App() {
           element={
             <PrivateLayout>
               <OrderDetailPage />
+            </PrivateLayout>
+          }
+        />
+        <Route
+          path="/favorites"
+          element={
+            <PrivateLayout>
+              <FavoritesPage />
             </PrivateLayout>
           }
         />

@@ -1,7 +1,7 @@
 import db from '../models/index.js';
 import { Op } from 'sequelize';
 
-const { Order, OrderItem, Product, Cart, CartItem, User, sequelize } = db;
+const { Order, OrderItem, Product, Cart, CartItem, User, Promotion, Coupon, UserCoupon, sequelize } = db;
 
 const ORDER_STATUSES = {
   NEW: 'NEW',
@@ -19,6 +19,171 @@ const PAYMENT_METHODS = {
 
 const AUTO_CONFIRM_MINUTES = 30;
 const CANCEL_WINDOW_MINUTES = 30;
+
+const REVIEW_POINT_UNIT = 1;
+
+const normalizeNumber = (value) => {
+  const parsed = parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const roundCurrency = (value) => Math.round((normalizeNumber(value) + Number.EPSILON) * 100) / 100;
+
+const groupPromotions = (promotions) => {
+  return promotions.reduce((acc, promo) => {
+    if (!acc[promo.productId]) {
+      acc[promo.productId] = [];
+    }
+    acc[promo.productId].push(promo);
+    return acc;
+  }, {});
+};
+
+const resolvePromotionDiscount = (unitPrice, promotions) => {
+  if (!promotions || promotions.length === 0) {
+    return 0;
+  }
+
+  const price = normalizeNumber(unitPrice);
+  const bestDiscount = promotions.reduce((maxDiscount, promo) => {
+    const percentDiscount = promo.discountPercent ? price * (promo.discountPercent / 100) : 0;
+    const fixedDiscount = promo.discountPrice ? normalizeNumber(promo.discountPrice) : 0;
+    return Math.max(maxDiscount, percentDiscount, fixedDiscount);
+  }, 0);
+
+  return Math.min(bestDiscount, price);
+};
+
+const resolveCoupon = async (code, userId, transaction) => {
+  if (!code) {
+    return { coupon: null, userCoupon: null };
+  }
+
+  const normalizedCode = code.trim().toUpperCase();
+  if (!normalizedCode) {
+    return { coupon: null, userCoupon: null };
+  }
+
+  const coupon = await Coupon.findOne({
+    where: { code: normalizedCode },
+    transaction
+  });
+
+  if (!coupon) {
+    return { error: 'Mã giảm giá không tồn tại' };
+  }
+
+  const now = new Date();
+  if (!coupon.isActive || coupon.startDate > now || coupon.endDate < now) {
+    return { error: 'Mã giảm giá đã hết hạn hoặc không còn hiệu lực' };
+  }
+
+  if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
+    return { error: 'Mã giảm giá đã hết lượt sử dụng' };
+  }
+
+  let userCoupon = null;
+  if (!coupon.isPublic) {
+    userCoupon = await UserCoupon.findOne({
+      where: { userId, couponId: coupon.id, isUsed: false },
+      transaction
+    });
+    if (!userCoupon) {
+      return { error: 'Mã giảm giá không khả dụng cho tài khoản này' };
+    }
+  }
+
+  return { coupon, userCoupon };
+};
+
+const buildOrderSummary = async ({ items, user, couponCode, points, transaction }) => {
+  const now = new Date();
+  const productIds = items.map((item) => item.productId);
+  const promotions = await Promotion.findAll({
+    where: {
+      productId: { [Op.in]: productIds },
+      isActive: true,
+      startDate: { [Op.lte]: now },
+      endDate: { [Op.gte]: now }
+    },
+    transaction
+  });
+
+  const promotionsByProduct = groupPromotions(promotions);
+  const enrichedItems = items.map((item) => {
+    const unitPrice = normalizeNumber(item.product?.price);
+    const promotionDiscountPerUnit = resolvePromotionDiscount(unitPrice, promotionsByProduct[item.productId]);
+    const quantity = item.quantity || 0;
+    const lineSubtotal = unitPrice * quantity;
+    const linePromotionDiscount = promotionDiscountPerUnit * quantity;
+    const lineTotal = lineSubtotal - linePromotionDiscount;
+
+    return {
+      productId: item.productId,
+      quantity,
+      unitPrice,
+      promotionDiscountPerUnit,
+      lineSubtotal,
+      linePromotionDiscount,
+      lineTotal,
+      product: item.product
+    };
+  });
+
+  const subtotal = roundCurrency(enrichedItems.reduce((sum, item) => sum + item.lineSubtotal, 0));
+  const promotionDiscount = roundCurrency(enrichedItems.reduce((sum, item) => sum + item.linePromotionDiscount, 0));
+  const discountedSubtotal = roundCurrency(subtotal - promotionDiscount);
+
+  const { coupon, userCoupon, error } = await resolveCoupon(couponCode, user.id, transaction);
+  if (error) {
+    return { success: false, message: error };
+  }
+
+  let couponDiscount = 0;
+  if (coupon) {
+    const eligibleAmount = enrichedItems
+      .filter((item) => !coupon.productId || item.productId === coupon.productId)
+      .reduce((sum, item) => sum + item.lineTotal, 0);
+
+    if (eligibleAmount <= 0) {
+      return { success: false, message: 'Mã giảm giá không áp dụng cho sản phẩm trong giỏ' };
+    }
+
+    if (coupon.minOrderValue && eligibleAmount < normalizeNumber(coupon.minOrderValue)) {
+      return { success: false, message: 'Đơn hàng chưa đạt giá trị tối thiểu để dùng mã giảm giá' };
+    }
+
+    if (coupon.discountType === 'PERCENT') {
+      couponDiscount = eligibleAmount * (normalizeNumber(coupon.discountValue) / 100);
+      if (coupon.maxDiscount) {
+        couponDiscount = Math.min(couponDiscount, normalizeNumber(coupon.maxDiscount));
+      }
+    } else {
+      couponDiscount = normalizeNumber(coupon.discountValue);
+    }
+
+    couponDiscount = roundCurrency(Math.min(couponDiscount, eligibleAmount));
+  }
+
+  const totalAfterCoupon = roundCurrency(discountedSubtotal - couponDiscount);
+  const availablePoints = Math.max(0, user.loyaltyPoints || 0);
+  const requestedPoints = Math.max(0, parseInt(points, 10) || 0);
+  const pointsRedeemed = Math.min(requestedPoints, availablePoints, Math.floor(totalAfterCoupon / REVIEW_POINT_UNIT));
+  const total = roundCurrency(totalAfterCoupon - pointsRedeemed * REVIEW_POINT_UNIT);
+
+  return {
+    success: true,
+    items: enrichedItems,
+    subtotal,
+    promotionDiscount,
+    coupon,
+    userCoupon,
+    couponDiscount,
+    pointsRedeemed,
+    total,
+    availablePoints
+  };
+};
 
 const getOrCreateCart = async (userId) => {
   const existingCart = await Cart.findOne({
@@ -94,14 +259,20 @@ const buildOrderPayload = (order) => {
 
   const items = (order.items || []).map((item) => {
     const unitPrice = item.price ? parseFloat(item.price) : 0;
+    const unitDiscount = item.discount ? parseFloat(item.discount) : 0;
     const quantity = item.quantity || 0;
+    const lineTotal = unitPrice * quantity;
+    const discountTotal = unitDiscount * quantity;
+    const finalLineTotal = lineTotal - discountTotal;
     return {
       id: item.id,
       productId: item.productId,
       quantity,
       unitPrice,
-      discount: item.discount ? parseFloat(item.discount) : 0,
-      lineTotal: unitPrice * quantity,
+      unitDiscount,
+      lineTotal,
+      discountTotal,
+      finalLineTotal,
       product: item.product
     };
   });
@@ -116,6 +287,11 @@ const buildOrderPayload = (order) => {
     phoneNumber: order.phoneNumber,
     note: order.note,
     total: order.total ? parseFloat(order.total) : 0,
+    subtotal: order.subtotal ? parseFloat(order.subtotal) : (order.total ? parseFloat(order.total) : 0),
+    promotionDiscount: order.promotionDiscount ? parseFloat(order.promotionDiscount) : 0,
+    couponCode: order.couponCode || null,
+    couponDiscount: order.couponDiscount ? parseFloat(order.couponDiscount) : 0,
+    pointsRedeemed: order.pointsRedeemed || 0,
     createdAt: order.createdAt,
     confirmedAt: order.confirmedAt,
     preparedAt: order.preparedAt,
@@ -133,6 +309,52 @@ const buildOrderPayload = (order) => {
     } : null,
     items
   };
+};
+
+const previewOrder = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { couponCode, points } = req.query;
+    const user = await User.findByPk(userId);
+    const cart = await getOrCreateCart(userId);
+    const cartData = await loadCartItems(cart.id);
+    const items = cartData?.items || [];
+
+    if (!items.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Giỏ hàng của bạn đang trống'
+      });
+    }
+
+    const summary = await buildOrderSummary({ items, user, couponCode, points });
+    if (!summary.success) {
+      return res.status(400).json({
+        success: false,
+        message: summary.message
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        items: summary.items,
+        subtotal: summary.subtotal,
+        promotionDiscount: summary.promotionDiscount,
+        couponCode: summary.coupon?.code || null,
+        couponDiscount: summary.couponDiscount,
+        pointsRedeemed: summary.pointsRedeemed,
+        total: summary.total,
+        availablePoints: summary.availablePoints
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Không thể tính toán đơn hàng',
+      error: error.message
+    });
+  }
 };
 
 const autoConfirmOrders = async (userId) => {
@@ -180,7 +402,7 @@ const applyStatusTimestamp = (status, paymentMethod) => {
 const createOrder = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { shippingAddress, phoneNumber, note, paymentMethod } = req.body;
+    const { shippingAddress, phoneNumber, note, paymentMethod, couponCode, points } = req.body;
 
     const user = await User.findByPk(userId);
     const resolvedAddress = shippingAddress || user?.address;
@@ -227,12 +449,20 @@ const createOrder = async (req, res) => {
       }
     }
 
-    const subtotal = items.reduce((sum, item) => {
-      const unitPrice = parseFloat(item.product.price || 0);
-      return sum + unitPrice * item.quantity;
-    }, 0);
-
     const createdOrder = await sequelize.transaction(async (transaction) => {
+      const transactionUser = await User.findByPk(userId, { transaction });
+      const summary = await buildOrderSummary({
+        items,
+        user: transactionUser,
+        couponCode,
+        points,
+        transaction
+      });
+
+      if (!summary.success) {
+        throw new Error(summary.message);
+      }
+
       const order = await Order.create({
         userId,
         status: ORDER_STATUSES.NEW,
@@ -241,17 +471,22 @@ const createOrder = async (req, res) => {
         shippingAddress: resolvedAddress,
         phoneNumber: resolvedPhone,
         note,
-        total: subtotal
+        total: summary.total,
+        subtotal: summary.subtotal,
+        promotionDiscount: summary.promotionDiscount,
+        couponCode: summary.coupon?.code || null,
+        couponDiscount: summary.couponDiscount,
+        pointsRedeemed: summary.pointsRedeemed
       }, { transaction });
 
-      for (const item of items) {
-        const unitPrice = parseFloat(item.product.price || 0);
+      for (const item of summary.items) {
+        const unitPrice = item.unitPrice;
         await OrderItem.create({
           orderId: order.id,
           productId: item.productId,
           quantity: item.quantity,
           price: unitPrice,
-          discount: 0
+          discount: item.promotionDiscountPerUnit
         }, { transaction });
 
         await Product.update({
@@ -261,6 +496,38 @@ const createOrder = async (req, res) => {
           where: { id: item.productId },
           transaction
         });
+      }
+
+      if (summary.coupon) {
+        await Coupon.update({
+          usageCount: (summary.coupon.usageCount || 0) + 1
+        }, {
+          where: { id: summary.coupon.id },
+          transaction
+        });
+
+        if (summary.userCoupon) {
+          await summary.userCoupon.update({
+            isUsed: true,
+            usedAt: new Date()
+          }, { transaction });
+        } else if (summary.coupon.isPublic) {
+          const [userCoupon] = await UserCoupon.findOrCreate({
+            where: { userId, couponId: summary.coupon.id },
+            defaults: { isUsed: true, usedAt: new Date() },
+            transaction
+          });
+
+          if (!userCoupon.isUsed) {
+            await userCoupon.update({ isUsed: true, usedAt: new Date() }, { transaction });
+          }
+        }
+      }
+
+      if (summary.pointsRedeemed > 0) {
+        await transactionUser.update({
+          loyaltyPoints: Math.max(0, (transactionUser.loyaltyPoints || 0) - summary.pointsRedeemed)
+        }, { transaction });
       }
 
       await CartItem.destroy({
@@ -277,9 +544,11 @@ const createOrder = async (req, res) => {
       data: buildOrderPayload(orderData)
     });
   } catch (error) {
-    return res.status(500).json({
+    const message = error?.message || 'Không thể tạo đơn hàng';
+    const status = message.includes('Mã giảm giá') || message.includes('Đơn hàng') ? 400 : 500;
+    return res.status(status).json({
       success: false,
-      message: 'Không thể tạo đơn hàng',
+      message,
       error: error.message
     });
   }
@@ -551,6 +820,7 @@ const updateStatus = async (req, res) => {
 
 export default {
   createOrder,
+  previewOrder,
   getOrders,
   getOrderDetail,
   cancelOrder,

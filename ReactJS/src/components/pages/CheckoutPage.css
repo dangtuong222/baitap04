@@ -24,6 +24,18 @@
   margin-top: 12px;
 }
 
+.checkout-summary .grand-total {
+  margin-top: 16px;
+  font-size: 16px;
+}
+
+.coupon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 @media (max-width: 991px) {
   .checkout-content {
     grid-template-columns: 1fr;

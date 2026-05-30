@@ -13,6 +13,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'orderId',
         as: 'items'
       });
+
+      Order.hasMany(models.Review, {
+        foreignKey: 'orderId',
+        as: 'reviews'
+      });
     }
   }
 
@@ -59,6 +64,29 @@ module.exports = (sequelize, DataTypes) => {
     total: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false
+    },
+    subtotal: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0
+    },
+    promotionDiscount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0
+    },
+    couponCode: {
+      type: DataTypes.STRING
+    },
+    couponDiscount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0
+    },
+    pointsRedeemed: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
     },
     confirmedAt: {
       type: DataTypes.DATE
